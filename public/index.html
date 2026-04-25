@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>🌸 素材兼职平台</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- User Setup Modal -->
+  <div class="modal-overlay" id="userSetupModal" style="display:none;">
+    <div class="modal modal-welcome">
+      <div class="welcome-icon">🌸</div>
+      <h3 class="welcome-title">Hi~ 欢迎来到素材小站</h3>
+      <p class="welcome-desc">设置昵称就可以开始接单赚零花钱啦</p>
+      <div class="form-group">
+        <label>你的昵称 <span class="required">*</span></label>
+        <input type="text" id="userNickname" placeholder="取个好听的名字吧~" maxlength="20" class="input-cute">
+      </div>
+      <div class="form-group">
+        <label>微信号 <span class="optional">选填</span></label>
+        <input type="text" id="userWechat" placeholder="方便联系你发赏金哦~" maxlength="30" class="input-cute">
+      </div>
+      <div class="form-group">
+        <label>收款码 <span class="required">*</span></label>
+        <p style="font-size:12px;color:var(--text-sub);margin-bottom:8px;">上传你的微信/支付宝收款码，审核通过后管理员扫码付款</p>
+        <div class="upload-area" style="padding:16px;" onclick="document.getElementById('userQrcode').click()">
+          <input type="file" id="userQrcode" accept="image/*" onchange="previewQrcode(this)">
+          <div id="qrcodePreview" style="display:none;">
+            <img id="qrcodeImg" src="" alt="收款码" style="width:120px;height:120px;object-fit:contain;border-radius:8px;border:2px solid var(--border);">
+            <p style="font-size:12px;color:var(--primary-dark);margin-top:6px;">点击更换</p>
+          </div>
+          <div id="qrcodePlaceholder">
+            <div class="upload-icon">💳</div>
+            <p class="upload-text">上传收款码</p>
+          </div>
+        </div>
+      </div>
+      <button class="btn-cute btn-primary" onclick="registerUser()">💕 开始接单</button>
+      <div style="text-align:center;margin-top:12px;">
+        <a href="javascript:void(0)" onclick="showLoginModal()" style="color:var(--primary);font-size:13px;text-decoration:underline;">已有账号？微信号登录</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login Modal -->
+  <div class="modal-overlay" id="loginModal" style="display:none;">
+    <div class="modal modal-welcome">
+      <div class="welcome-icon">🔑</div>
+      <h3 class="welcome-title">微信号登录</h3>
+      <p class="welcome-desc">输入注册时填写的微信号找回账号</p>
+      <div class="form-group">
+        <label>微信号 <span class="required">*</span></label>
+        <input type="text" id="loginWechat" placeholder="输入你的微信号" maxlength="30" class="input-cute">
+      </div>
+      <button class="btn-cute btn-primary" onclick="loginByWechat()">🔓 登录</button>
+      <div style="text-align:center;margin-top:12px;">
+        <a href="javascript:void(0)" onclick="showRegisterFromLogin()" style="color:var(--primary);font-size:13px;text-decoration:underline;">没有账号？去注册</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header header-cute">
+    <div class="header-top">
+      <div class="header-title">🌸 素材小站</div>
+      <div class="header-user" id="headerUser" style="display:none;">
+        <span id="userDisplayName" class="user-badge"></span>
+        <a href="/orders" class="btn-orders-link">📦 我的</a>
+      </div>
+    </div>
+    <div class="header-stats">
+      <div class="stat-bubble">
+        <span class="stat-num" id="statTotal">0</span>
+        <span class="stat-label">任务</span>
+      </div>
+      <div class="stat-bubble stat-xhs">
+        <span class="stat-num" id="statXhs">0</span>
+        <span class="stat-label">小红书</span>
+      </div>
+      <div class="stat-bubble stat-dy">
+        <span class="stat-num" id="statDy">0</span>
+        <span class="stat-label">抖音</span>
+      </div>
+      <div class="stat-bubble stat-reward">
+        <span class="stat-num" id="statReward">¥0</span>
+        <span class="stat-label">赏金</span>
+      </div>
+    </div>
+    <div class="announcement-bar" id="announcementBar" style="display:none;">
+      <span>🔔</span>
+      <span class="marquee" id="announcementText"></span>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="search-bar">
+    <div class="search-input-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="搜索你喜欢的素材~" oninput="debounceSearch()">
+      <button class="btn-search-clear" id="btnSearchClear" style="display:none;" onclick="clearSearch()">✕</button>
+    </div>
+  </div>
+
+  <!-- Platform Tabs -->
+  <div class="tab-nav">
+    <div class="tab-pill active" data-platform="all" onclick="switchPlatform('all', this)">✨ 全部</div>
+    <div class="tab-pill" data-platform="xiaohongshu" onclick="switchPlatform('xiaohongshu', this)">📕 小红书</div>
+    <div class="tab-pill" data-platform="douyin" onclick="switchPlatform('douyin', this)">🎵 抖音</div>
+  </div>
+
+  <!-- Sub Type Tabs -->
+  <div class="sub-tabs" id="subTabs">
+    <div class="sub-pill active" data-type="" onclick="switchType('', this)">全部</div>
+    <div class="sub-pill" data-type="image" onclick="switchType('image', this)">📷 图文</div>
+    <div class="sub-pill" data-type="video" onclick="switchType('video', this)">🎬 视频</div>
+    <div class="sub-pill" data-type="comment" onclick="switchType('comment', this)">💬 评论</div>
+  </div>
+
+  <!-- Material List -->
+  <div class="material-list" id="materialList">
+    <div class="loading-state" id="loadingState">
+      <div class="loading-bounce">
+        <span></span><span></span><span></span>
+      </div>
+      <p>正在加载~</p>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

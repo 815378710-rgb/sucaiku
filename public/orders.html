@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>我的订单</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="nav-back" onclick="location.href='/'">
+    <span class="back-arrow">←</span> 返回首页
+  </div>
+
+  <div class="orders-page">
+    <div class="orders-header">
+      <h2>📦 我的接单</h2>
+    </div>
+
+    <div class="orders-summary" id="ordersSummary"></div>
+
+    <div class="order-tabs">
+      <div class="sub-pill active" onclick="filterOrders('all', this)">全部</div>
+      <div class="sub-pill" onclick="filterOrders('accepted', this)">进行中</div>
+      <div class="sub-pill" onclick="filterOrders('submitted', this)">审核中</div>
+      <div class="sub-pill" onclick="filterOrders('approved', this)">已通过</div>
+      <div class="sub-pill" onclick="filterOrders('rejected', this)">已驳回</div>
+      <div class="sub-pill" onclick="filterOrders('paid', this)">已到账</div>
+    </div>
+
+    <div class="order-list" id="orderList">
+      <div class="loading-state">
+        <div class="loading-bounce"><span></span><span></span><span></span></div>
+        <p>加载中~</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    var allOrders = [];
+    var currentFilter = 'all';
+    var userId = localStorage.getItem('userId');
+
+    if (!userId) {
+      document.getElementById('orderList').innerHTML =
+        '<div class="empty-state"><div class="empty-emoji">🔐</div>' +
+        '<p>先去首页设置昵称吧~</p>' +
+        '<button class="btn-cute" style="margin-top:16px;" onclick="location.href=\'/\'">去首页</button></div>';
+    } else {
+      loadOrders();
+    }
+
+    async function loadOrders() {
+      try {
+        var res = await fetch('/api/orders/my?userId=' + userId);
+        var data = await res.json();
+        if (data.success) {
+          allOrders = data.data;
+          renderSummary();
+          renderOrders();
+        }
+      } catch (e) {
+        showToast('加载失败~');
+      }
+    }
+
+    function renderSummary() {
+      var total = allOrders.length;
+      var earned = allOrders.filter(function(o) { return o.status === 'paid'; }).reduce(function(s, o) { return s + o.reward; }, 0);
+      var pending = allOrders.filter(function(o) { return o.status === 'approved'; }).reduce(function(s, o) { return s + o.reward; }, 0);
+      document.getElementById('ordersSummary').innerHTML =
+        '<div class="summary-card">' +
+          '<div class="summary-num">' + total + '</div>' +
+          '<div class="summary-label">总接单</div>' +
+        '</div>' +
+        '<div class="summary-card summary-earned">' +
+          '<div class="summary-num">¥' + earned.toFixed(1) + '</div>' +
+          '<div class="summary-label">已到账</div>' +
+        '</div>' +
+        '<div class="summary-card summary-pending">' +
+          '<div class="summary-num">¥' + pending.toFixed(1) + '</div>' +
+          '<div class="summary-label">待发放</div>' +
+        '</div>';
+    }
+
+    function filterOrders(filter, el) {
+      currentFilter = filter;
+      el.parentElement.querySelectorAll('.sub-pill').forEach(function(t) { t.classList.remove('active'); });
+      el.classList.add('active');
+      renderOrders();
+    }
+
+    function renderOrders() {
+      var orders = allOrders;
+      if (currentFilter !== 'all') orders = orders.filter(function(o) { return o.status === currentFilter; });
+
+      var list = document.getElementById('orderList');
+      if (orders.length === 0) {
+        list.innerHTML =
+          '<div class="empty-state"><div class="empty-emoji">' + (currentFilter === 'all' ? '🌸' : '📭') + '</div>' +
+          '<p>' + (currentFilter === 'all' ? '还没有接过单，快去看看~' : '暂无此类订单') + '</p></div>';
+        return;
+      }
+
+      var statusMap = {
+        accepted:  { label: '进行中', cls: 'st-active', icon: '⏳' },
+        submitted: { label: '审核中', cls: 'st-submitted', icon: '📤' },
+        approved:  { label: '已通过', cls: 'st-approved', icon: '🎉' },
+        rejected:  { label: '被驳回', cls: 'st-rejected', icon: '😿' },
+        paid:      { label: '已到账', cls: 'st-paid', icon: '💰' }
+      };
+
+      list.innerHTML = orders.map(function(o) {
+        var st = statusMap[o.status] || { label: o.status, cls: '', icon: '❓' };
+        var date = new Date(o.acceptedAt).toLocaleDateString('zh-CN');
+        var thumb = o.materialImages && o.materialImages[0] ? o.materialImages[0] : '';
+        return '<div class="order-card" onclick="location.href=\'/material/' + o.materialId + '\'">' +
+          '<div class="order-card-left">' +
+            (thumb ? '<img src="' + escapeHtml(thumb) + '" class="order-thumb" alt="">' : '<div class="order-thumb-empty">📋</div>') +
+          '</div>' +
+          '<div class="order-card-body">' +
+            '<div class="order-title">' + escapeHtml(o.materialTitle) + '</div>' +
+            '<div class="order-meta">' +
+              '<span class="order-reward">¥' + o.reward + '</span>' +
+              '<span class="order-date">' + date + '</span>' +
+            '</div>' +
+            '<span class="order-badge ' + st.cls + '">' + st.icon + ' ' + st.label + '</span>' +
+            (o.status === 'rejected' && o.reviewNote ? '<div class="reject-reason">原因：' + escapeHtml(o.reviewNote) + '</div>' : '') +
+          '</div></div>';
+      }).join('');
+    }
+
+    function showToast(msg) {
+      var toast = document.getElementById('toast');
+      if (!toast) { toast = document.createElement('div'); toast.className = 'toast'; document.body.appendChild(toast); }
+      toast.textContent = msg; toast.classList.add('show');
+      setTimeout(function() { toast.classList.remove('show'); }, 2000);
+    }
+  </script>
+</body>
+</html>

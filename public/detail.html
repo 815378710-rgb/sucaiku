@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="format-detection" content="telephone=no">
+  <title>素材详情</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Back -->
+  <div class="nav-back" onclick="history.back()">
+    <span class="back-arrow">←</span> 返回
+  </div>
+
+  <div class="detail-page" id="detailPage">
+    <!-- Tags -->
+    <div class="detail-tags" id="detailTags"></div>
+
+    <!-- Images -->
+    <div class="detail-images" id="detailImages"></div>
+
+    <!-- Content -->
+    <div class="detail-body">
+      <h3 id="detailTitle"></h3>
+
+      <!-- Copy Section -->
+      <div class="copy-card">
+        <div class="copy-text" id="copyText"></div>
+        <button class="btn-cute btn-copy" id="btnCopy" onclick="doCopyText()">📋 一键复制文案</button>
+      </div>
+
+      <!-- Reward -->
+      <div class="reward-card">
+        <div class="reward-emoji">💰</div>
+        <div class="reward-info">
+          <span class="reward-amount" id="rewardAmount"></span>
+          <span class="reward-unit">/ 单</span>
+        </div>
+      </div>
+
+      <!-- Slots -->
+      <div class="slots-card">
+        <div class="slots-header">
+          <span>📊 接单进度</span>
+          <span class="slots-count" id="slotsText"></span>
+        </div>
+        <div class="slots-bar">
+          <div class="slots-bar-fill" id="slotsBarFill"></div>
+        </div>
+      </div>
+
+      <!-- Guide -->
+      <div class="guide-card">
+        <div class="guide-title">💡 操作步骤</div>
+        <div class="guide-steps">
+          <div class="guide-step"><span class="step-dot">1</span>复制文案，保存图片到相册</div>
+          <div class="guide-step"><span class="step-dot">2</span>打开对应平台发布内容</div>
+          <div class="guide-step"><span class="step-dot">3</span>发布成功后，粘贴帖子链接提交审核</div>
+          <div class="guide-step"><span class="step-dot">4</span>审核通过，管理员扫码给你发赏金~</div>
+        </div>
+      </div>
+
+      <!-- Accept Button -->
+      <button class="btn-cute btn-accept-main" id="btnAccept" onclick="acceptOrder()">
+        💕 立即接单
+      </button>
+
+      <!-- Submit Section -->
+      <div class="submit-section" id="submitSection" style="display:none;">
+        <div class="section-divider">
+          <span>🔗 提交链接</span>
+        </div>
+        <p class="submit-hint">把发布好的帖子「分享」给好友，然后把分享的文字直接粘贴过来就行~</p>
+        <div class="form-group" style="margin-top:12px;">
+          <input type="text" id="postUrl" placeholder="直接粘贴分享的整段文字就行~" class="input-cute">
+        </div>
+        <div class="form-group">
+          <input type="text" id="submitNote" placeholder="备注（选填）" maxlength="100" class="input-cute">
+        </div>
+        <button class="btn-cute btn-submit-review" id="btnSubmitReview" onclick="submitForReview()">
+          📤 提交审核
+        </button>
+      </div>
+
+      <!-- Order Status -->
+      <div class="order-status-card" id="orderStatusCard" style="display:none;">
+        <div class="status-emoji" id="statusEmoji"></div>
+        <div class="status-label" id="statusLabel"></div>
+        <div class="status-desc" id="statusDesc"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Viewer -->
+  <div class="image-viewer" id="imageViewer" style="display:none;" onclick="closeViewer()">
+    <img id="viewerImg" src="" alt="">
+    <div class="viewer-hint">点击空白处关闭</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const materialId = window.location.pathname.split('/').pop();
+    let material = null;
+    let currentOrderId = null;
+    let userId = localStorage.getItem('userId');
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    async function loadDetail() {
+      try {
+        const res = await fetch('/api/materials/' + materialId);
+        const data = await res.json();
+        if (!data.success) {
+          document.getElementById('detailPage').innerHTML =
+            '<div class="empty-state"><div class="empty-emoji">😿</div>' +
+            '<p>素材不见了~</p>' +
+            '<button class="btn-cute" style="margin-top:16px;" onclick="history.back()">返回看看别的</button></div>';
+          return;
+        }
+        material = data.data;
+        renderDetail();
+        checkOrderStatus();
+      } catch (e) {
+        showToast('加载失败，刷新试试~');
+      }
+    }
+
+    function renderDetail() {
+      document.title = material.title;
+      var platformLabel = material.platform === 'xiaohongshu' ? '📕 小红书' : '🎵 抖音';
+      var typeLabel = {image:'📷 图文',video:'🎬 视频',comment:'💬 评论'}[material.type];
+      var slotsLeft = Math.max(0, material.maxOrders - material.currentOrders);
+
+      document.getElementById('detailTags').innerHTML =
+        '<span class="tag tag-platform ' + escapeHtml(material.platform) + '">' + platformLabel + '</span>' +
+        '<span class="tag tag-type">' + typeLabel + '</span>' +
+        '<span class="tag ' + (slotsLeft <= 0 ? 'tag-full' : 'tag-slots') + '">' + (slotsLeft <= 0 ? '已满~' : '剩' + slotsLeft + '单') + '</span>' +
+        '<span class="tag tag-reward">¥' + material.reward + '/单</span>';
+
+      var imagesHtml = material.images.map(function(img) {
+        return '<img src="' + escapeHtml(img) + '" onclick="viewImage(this.src)" alt="素材图片">';
+      }).join('');
+      document.getElementById('detailImages').innerHTML = imagesHtml || '<div style="padding:20px;text-align:center;color:#ccc;">暂无图片~</div>';
+
+      document.getElementById('detailTitle').textContent = material.title;
+      document.getElementById('copyText').textContent = material.copyText || '暂无文案~';
+      document.getElementById('rewardAmount').textContent = '¥' + material.reward;
+      document.getElementById('slotsText').textContent = material.currentOrders + '/' + material.maxOrders + ' 已接单';
+
+      var pct = material.maxOrders > 0 ? (material.currentOrders / material.maxOrders * 100) : 0;
+      document.getElementById('slotsBarFill').style.width = Math.min(pct, 100) + '%';
+
+      var btn = document.getElementById('btnAccept');
+      if (slotsLeft <= 0) {
+        btn.textContent = '😿 接单已满';
+        btn.classList.add('disabled');
+      }
+    }
+
+    async function checkOrderStatus() {
+      if (!userId) return;
+      try {
+        var res = await fetch('/api/orders/my?userId=' + userId);
+        var data = await res.json();
+        if (data.success) {
+          var order = data.data.find(function(o) { return o.materialId === materialId; });
+          if (order) {
+            currentOrderId = order.id;
+            document.getElementById('btnAccept').style.display = 'none';
+            if (order.status === 'accepted') {
+              document.getElementById('submitSection').style.display = 'block';
+              showToast('你接过这个啦，记得上传截图哦~');
+            } else {
+              showOrderStatus(order);
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    function showOrderStatus(order) {
+      document.getElementById('submitSection').style.display = 'none';
+      document.getElementById('btnAccept').style.display = 'none';
+      var card = document.getElementById('orderStatusCard');
+      card.style.display = 'block';
+
+      var map = {
+        submitted: { emoji: '⏳', label: '审核中', desc: '截图已提交，耐心等一下哦~', color: '#ff9800' },
+        approved:  { emoji: '🎉', label: '已通过', desc: '审核通过啦！赏金 ¥' + order.reward + ' 即将发放~', color: '#4caf50' },
+        rejected:  { emoji: '😿', label: '被驳回', desc: order.reviewNote || '不符合要求，修改后可以重新提交', color: '#f44336' },
+        paid:      { emoji: '💰', label: '已到账', desc: '¥' + order.reward + ' 已经到你口袋啦~', color: '#e91e63' }
+      };
+      var s = map[order.status] || { emoji: '❓', label: order.status, desc: '', color: '#999' };
+
+      document.getElementById('statusEmoji').textContent = s.emoji;
+      document.getElementById('statusLabel').textContent = s.label;
+      document.getElementById('statusLabel').style.color = s.color;
+      document.getElementById('statusDesc').textContent = s.desc;
+
+      if (order.status === 'rejected') {
+        var retryBtn = document.createElement('button');
+        retryBtn.className = 'btn-cute';
+        retryBtn.style.marginTop = '16px';
+        retryBtn.textContent = '🔄 重新提交';
+        retryBtn.onclick = function() {
+          card.style.display = 'none';
+          document.getElementById('submitSection').style.display = 'block';
+          document.getElementById('postUrl').value = '';
+          document.getElementById('submitNote').value = '';
+          var btn = document.getElementById('btnSubmitReview');
+          btn.disabled = false;
+          btn.textContent = '📤 提交审核';
+        };
+        card.appendChild(retryBtn);
+      }
+    }
+
+    async function acceptOrder() {
+      if (!userId) {
+        showToast('先设置昵称才能接单哦~');
+        return;
+      }
+      var btn = document.getElementById('btnAccept');
+      if (btn.classList.contains('disabled')) return;
+      btn.disabled = true;
+      btn.textContent = '⏳ 接单中...';
+
+      try {
+        var res = await fetch('/api/materials/' + materialId + '/accept', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: userId })
+        });
+        var data = await res.json();
+        if (data.success) {
+          currentOrderId = data.data.orderId;
+          showToast('🎉 接单成功~ 快去上传截图吧');
+          btn.style.display = 'none';
+          document.getElementById('submitSection').style.display = 'block';
+        } else {
+          showToast(data.message || '接单失败~');
+          btn.disabled = false;
+          btn.textContent = '💕 立即接单';
+        }
+      } catch (e) {
+        showToast('网络不太好，再试试~');
+        btn.disabled = false;
+        btn.textContent = '💕 立即接单';
+      }
+    }
+
+    function previewSubmitImages(input) {
+      var preview = document.getElementById('submitPreview');
+      preview.innerHTML = '';
+      var files = Array.from(input.files).slice(0, 6);
+      files.forEach(function(file) {
+        if (file.size > 10 * 1024 * 1024) {
+          showToast('图片太大啦，选张小一点的~');
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var div = document.createElement('div');
+          div.className = 'preview-thumb';
+          div.innerHTML = '<img src="' + e.target.result + '" alt="预览">';
+          preview.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function submitForReview() {
+      if (!currentOrderId) { showToast('先接单才能提交~'); return; }
+      var rawText = document.getElementById('postUrl').value.trim();
+      if (!rawText) { showToast('请粘贴分享的文字~'); return; }
+      // Auto-extract URL from share text
+      var urlMatch = rawText.match(/https?:\/\/[^\s\u4e00-\u9fa5]+/i);
+      if (!urlMatch) {
+        showToast('没有找到链接，直接粘贴分享的整段文字就行~');
+        return;
+      }
+      var postUrl = urlMatch[0].replace(/[，。！？、）》】]+$/, '');
+
+      var btn = document.getElementById('btnSubmitReview');
+      btn.disabled = true;
+      btn.textContent = '⏳ 提交中...';
+
+      try {
+        var res = await fetch('/api/orders/' + currentOrderId + '/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            postUrl: postUrl,
+            note: document.getElementById('submitNote').value
+          })
+        });
+        var data = await res.json();
+        if (data.success) {
+          showToast('✅ 链接已提交，等审核哦~');
+          document.getElementById('submitSection').style.display = 'none';
+          showOrderStatus({ status: 'submitted', reviewNote: '' });
+        } else {
+          showToast(data.message || '提交失败~');
+          btn.disabled = false;
+          btn.textContent = '📤 提交审核';
+        }
+      } catch (e) {
+        showToast('网络错误，再试试~');
+        btn.disabled = false;
+        btn.textContent = '📤 提交审核';
+      }
+    }
+
+    // WeChat-compatible copy
+    function doCopyText() {
+      var text = material ? material.copyText : '';
+      if (!text) { showToast('暂无文案~'); return; }
+
+      // Method 1: Clipboard API (modern browsers)
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+          onCopySuccess();
+        }).catch(function() {
+          fallbackCopy(text);
+        });
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      // Method 2: execCommand with hidden textarea (works in WeChat)
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:none;outline:none;box-shadow:none;opacity:0;';
+
+      // WeChat needs the textarea to be visible briefly
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+
+      try {
+        var ok = document.execCommand('copy');
+        if (ok) {
+          onCopySuccess();
+        } else {
+          // Method 3: Show text for manual copy
+          showCopyFallback(text);
+        }
+      } catch (e) {
+        showCopyFallback(text);
+      }
+      document.body.removeChild(ta);
+    }
+
+    function onCopySuccess() {
+      showToast('✅ 文案已复制~');
+      var btn = document.getElementById('btnCopy');
+      btn.textContent = '✅ 已复制';
+      btn.classList.add('copied');
+      setTimeout(function() {
+        btn.textContent = '📋 一键复制文案';
+        btn.classList.remove('copied');
+      }, 2000);
+    }
+
+    function showCopyFallback(text) {
+      // Last resort: show a modal with text for manual long-press copy
+      var overlay = document.createElement('div');
+      overlay.className = 'modal-overlay active';
+      var modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.textAlign = 'center';
+      modal.innerHTML = '<h3>📋 长按复制文案</h3>' +
+        '<div class="copy-fallback-text" style="background:#f8f8f8;padding:16px;border-radius:12px;margin:16px 0;font-size:14px;line-height:1.6;word-break:break-all;user-select:all;-webkit-user-select:all;max-height:200px;overflow-y:auto;"></div>' +
+        '<button class="btn-cute" onclick="this.closest(\'.modal-overlay\').remove()">关闭</button>';
+      modal.querySelector('.copy-fallback-text').textContent = text;
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+    }
+
+    function viewImage(src) {
+      var viewer = document.getElementById('imageViewer');
+      document.getElementById('viewerImg').src = src;
+      viewer.style.display = 'flex';
+    }
+
+    function closeViewer() {
+      document.getElementById('imageViewer').style.display = 'none';
+    }
+
+    function showToast(msg) {
+      var toast = document.getElementById('toast');
+      if (!toast) { toast = document.createElement('div'); toast.className = 'toast'; document.body.appendChild(toast); }
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(function() { toast.classList.remove('show'); }, 2500);
+    }
+
+    loadDetail();
+  </script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>管理后台</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Login -->
+  <div class="admin-login" id="loginPage">
+    <div class="login-card">
+      <div class="login-icon">🔐</div>
+      <h2>管理后台</h2>
+      <input type="password" id="loginPassword" placeholder="输入管理员密码" class="input-cute" onkeydown="if(event.key==='Enter')login()">
+      <button class="btn-cute btn-primary" onclick="login()">登 录</button>
+      <p id="loginError" class="login-error" style="display:none;"></p>
+    </div>
+  </div>
+
+  <!-- Admin Panel -->
+  <div class="admin-panel" id="adminPanel">
+    <div class="admin-header">
+      <h1>📋 管理后台</h1>
+      <button class="btn-logout" onclick="logout()">退出</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="admin-stats" id="adminStats"></div>
+
+    <!-- Tabs -->
+    <div class="admin-tabs">
+      <div class="admin-tab active" onclick="switchTab('publish', this)">📤 发布</div>
+      <div class="admin-tab" onclick="switchTab('manage', this)">📦 素材</div>
+      <div class="admin-tab" onclick="switchTab('orders', this)">📋 订单</div>
+      <div class="admin-tab" onclick="switchTab('users', this)">👥 用户</div>
+      <div class="admin-tab" onclick="switchTab('announce', this)">📢 公告</div>
+    </div>
+
+    <!-- Section: Publish -->
+    <div class="admin-section active" id="section-publish">
+      <h3>发布新素材</h3>
+      <form id="publishForm" onsubmit="publishMaterial(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label>平台 *</label>
+            <select id="formPlatform" class="input-cute" required>
+              <option value="">请选择</option>
+              <option value="xiaohongshu">📕 小红书</option>
+              <option value="douyin">🎵 抖音</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>类型 *</label>
+            <select id="formType" class="input-cute" required>
+              <option value="">请选择</option>
+              <option value="image">📷 图文</option>
+              <option value="video">🎬 视频</option>
+              <option value="comment">💬 评论</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>标题 *</label>
+          <input type="text" id="formTitle" placeholder="取个吸引人的标题~" class="input-cute" required>
+        </div>
+        <div class="form-group">
+          <label>复制文案</label>
+          <textarea id="formCopyText" placeholder="用户接单后会复制这段文案" class="input-cute"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>赏金 (元) *</label>
+            <input type="number" id="formReward" placeholder="5" min="0.01" step="0.01" class="input-cute" required>
+          </div>
+          <div class="form-group">
+            <label>最大接单 *</label>
+            <input type="number" id="formMaxOrders" placeholder="10" min="1" value="10" class="input-cute" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>标签（逗号分隔）</label>
+            <input type="text" id="formTags" placeholder="美妆,护肤" class="input-cute">
+          </div>
+          <div class="form-group">
+            <label>有效天数 <span class="optional">0=永久</span></label>
+            <input type="number" id="formExpireDays" placeholder="0" min="0" value="0" class="input-cute">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>素材图片（最多9张）</label>
+          <div class="upload-area" onclick="document.getElementById('formImages').click()">
+            <input type="file" id="formImages" accept="image/*" multiple onchange="previewImages(this)">
+            <div class="upload-icon">📷</div>
+            <p class="upload-text">点击上传图片</p>
+          </div>
+          <div class="upload-preview" id="imagePreview"></div>
+        </div>
+        <button type="submit" class="btn-cute btn-primary">🚀 发布素材</button>
+      </form>
+    </div>
+
+    <!-- Section: Manage -->
+    <div class="admin-section" id="section-manage">
+      <div class="section-header">
+        <h3>素材管理</h3>
+        <div class="filter-pills">
+          <button class="filter-pill active" onclick="filterMats('all', this)">全部</button>
+          <button class="filter-pill" onclick="filterMats('active', this)">进行中</button>
+          <button class="filter-pill" onclick="filterMats('archived', this)">已归档</button>
+        </div>
+      </div>
+      <div id="adminMaterialList"></div>
+    </div>
+
+    <!-- Section: Orders -->
+    <div class="admin-section" id="section-orders">
+      <div class="section-header">
+        <h3>订单管理</h3>
+        <div class="filter-pills">
+          <button class="filter-pill active" onclick="filterOrds('all', this)">全部</button>
+          <button class="filter-pill" onclick="filterOrds('submitted', this)">待审核</button>
+          <button class="filter-pill" onclick="filterOrds('approved', this)">待打款</button>
+          <button class="filter-pill" onclick="filterOrds('paid', this)">已打款</button>
+        </div>
+      </div>
+      <div id="adminOrderList"></div>
+    </div>
+
+    <!-- Section: Users -->
+    <div class="admin-section" id="section-users">
+      <h3>用户管理</h3>
+      <div id="adminUserList"></div>
+    </div>
+
+    <!-- Section: Announcements -->
+    <div class="admin-section" id="section-announce">
+      <h3>网站公告</h3>
+      <div class="form-group">
+        <label>公告标题</label>
+        <input type="text" id="annTitle" placeholder="输入标题" class="input-cute">
+      </div>
+      <div class="form-group">
+        <label>公告内容</label>
+        <textarea id="annContent" placeholder="输入内容" class="input-cute"></textarea>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="annPinned" style="width:auto;">
+        <label for="annPinned" style="margin:0;">📌 置顶</label>
+      </div>
+      <button class="btn-cute btn-primary" onclick="addAnnouncement()">📢 发布公告</button>
+      <div style="margin-top:24px;">
+        <h4 style="margin-bottom:12px;">现有公告</h4>
+        <div id="announcementList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Review Modal -->
+  <div class="modal-overlay" id="reviewModal">
+    <div class="modal">
+      <h3>📋 审核订单</h3>
+      <div id="reviewContent"></div>
+      <div class="form-group">
+        <label>审核备注</label>
+        <input type="text" id="reviewNote" placeholder="驳回时建议写明原因~" class="input-cute">
+      </div>
+      <div class="btn-group">
+        <button class="btn-cancel" onclick="closeReview()">取消</button>
+        <button class="btn-reject" onclick="reviewOrder('reject')">驳回</button>
+        <button class="btn-confirm" onclick="reviewOrder('approve')">通过</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal">
+      <h3>✏️ 编辑素材</h3>
+      <input type="hidden" id="editId">
+      <div class="form-group"><label>标题</label><input type="text" id="editTitle" class="input-cute"></div>
+      <div class="form-group"><label>文案</label><textarea id="editCopyText" class="input-cute"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>赏金</label><input type="number" id="editReward" step="0.01" class="input-cute"></div>
+        <div class="form-group"><label>最大接单</label><input type="number" id="editMaxOrders" class="input-cute"></div>
+      </div>
+      <div class="btn-group">
+        <button class="btn-cancel" onclick="closeEdit()">取消</button>
+        <button class="btn-confirm" onclick="saveEdit()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/js/admin.js"></script>
+</body>
+</html>
