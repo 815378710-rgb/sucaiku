@@ -50,11 +50,24 @@ export async function onRequestPost(context) {
   }
 
   const orderId = crypto.randomUUID();
-  await supabase.from('orders').insert({
-    id: orderId, material_id: params.id, user_id: userId,
-    material_title: material.title, platform: material.platform,
-    reward: material.reward, status: 'accepted'
-  });
+  try {
+    await supabase.from('orders').insert({
+      id: orderId, material_id: params.id, user_id: userId,
+      material_title: material.title, platform: material.platform,
+      reward: material.reward, status: 'accepted'
+    });
+  } catch (err) {
+    // 回滚 current_orders，防止库存永久丢失
+    try {
+      const { data: mat } = await supabase.from('materials').select('current_orders').eq('id', params.id).single();
+      if (mat && mat.current_orders > 0) {
+        await supabase.from('materials').update({ current_orders: mat.current_orders - 1 }).eq('id', params.id);
+      }
+    } catch (rollbackErr) {
+      console.error('回滚 current_orders 失败:', rollbackErr);
+    }
+    return Response.json({ success: false, message: '创建订单失败，请重试' }, { status: 500 });
+  }
   await supabase.from('users').update({
     total_orders: user.total_orders + 1, last_active_at: new Date().toISOString()
   }).eq('id', userId);

@@ -1,5 +1,5 @@
 // ============================================
-// 素材兼职平台 v2.1 - 管理后台
+// 素材兼职平台 v3.0 - 管理后台
 // ============================================
 
 var adminToken = localStorage.getItem('adminToken') || '';
@@ -120,9 +120,11 @@ async function loadStats() {
 }
 
 function statCard(num, label, color) {
-  return '<div class="stat-card" style="border-top:3px solid ' + color + ';">' +
-    '<div class="stat-card-num" style="color:' + color + ';">' + num + '</div>' +
-    '<div class="stat-card-label">' + label + '</div></div>';
+  // 校验 color 为合法 CSS 颜色值，防止 XSS
+  const safeColor = /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : '#999';
+  return '<div class="stat-card" style="border-top:3px solid ' + safeColor + ';">' +
+    '<div class="stat-card-num" style="color:' + safeColor + ';">' + escapeHtml(String(num)) + '</div>' +
+    '<div class="stat-card-label">' + escapeHtml(label) + '</div></div>';
 }
 
 // --- Publish ---

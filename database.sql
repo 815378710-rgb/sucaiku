@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS site_config (
   value TEXT NOT NULL
 );
 
--- 默认管理员密码: admin123
+-- 默认管理员密码通过 site_config 表管理，首次部署后请立即修改
 INSERT INTO site_config (key, value)
 VALUES ('admin_password_hash', encode(sha256(('admin123' || 'sucaiku_v2_salt')::bytea), 'hex'))
 ON CONFLICT (key) DO NOTHING;

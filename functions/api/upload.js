@@ -13,6 +13,11 @@ export async function onRequestPost(context) {
   const allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
   if (!allowed.includes(ext)) return Response.json({ success: false, message: '不支持的文件格式' }, { status: 400 });
 
+  // 限制文件大小为 10MB
+  if (file.size > 10 * 1024 * 1024) {
+    return Response.json({ success: false, message: '文件大小不能超过10MB' }, { status: 400 });
+  }
+
   const fileName = `${Date.now()}_${crypto.randomUUID().slice(0, 8)}.${ext}`;
   const arrayBuffer = await file.arrayBuffer();
   const fileBuffer = new Uint8Array(arrayBuffer);

@@ -301,7 +301,8 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             postUrl: postUrl,
-            note: document.getElementById('submitNote').value
+            note: document.getElementById('submitNote').value,
+            userId: userId
           })
         });
         var data = await res.json();

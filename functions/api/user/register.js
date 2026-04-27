@@ -16,21 +16,15 @@ export async function onRequestPost(context) {
     return Response.json({ success: false, message: '请填写微信号~' }, { status: 400 });
   }
 
-  let user = null;
-  if (wx) {
-    const { data } = await supabase.from('users').select('*').eq('wechat', wx).single();
-    user = data;
-  }
-  if (!user) {
-    const { data } = await supabase.from('users').select('*').eq('nickname', nick).eq('wechat', '').single();
-    user = data;
-  }
-
-  if (!user) {
-    const { data: taken } = await supabase.from('users').select('id').eq('nickname', nick).limit(1);
-    if (taken && taken.length > 0) {
+  // 检查昵称是否已被占用（无论微信号是否为空）
+  const { data: nickTaken } = await supabase.from('users').select('id, wechat').eq('nickname', nick).limit(1);
+  if (nickTaken && nickTaken.length > 0) {
+    // 如果昵称已存在，但该记录的微信号为空或与当前相同，允许合并（更新）
+    if (nickTaken[0].wechat && nickTaken[0].wechat !== wx) {
       return Response.json({ success: false, message: '昵称已被占用，换一个吧~' }, { status: 400 });
     }
+    // 微信号相同或为空，走合并逻辑
+    user = { id: nickTaken[0].id };
   }
 
   if (user) {

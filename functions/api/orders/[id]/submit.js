@@ -7,6 +7,7 @@ export async function onRequestPost(context) {
   const body = await request.json();
   const rawText = body?.postUrl || '';
   const note = body?.note || '';
+  const userId = body?.userId || '';
 
   if (!rawText.trim()) {
     return Response.json({ success: false, message: '请粘贴分享的文字~' }, { status: 400 });
@@ -20,6 +21,12 @@ export async function onRequestPost(context) {
 
   const { data: order } = await supabase.from('orders').select('*').eq('id', params.id).single();
   if (!order) return Response.json({ success: false, message: '订单不存在' }, { status: 404 });
+
+  // 校验请求者是否为订单所属用户
+  if (userId && order.user_id !== userId) {
+    return Response.json({ success: false, message: '无权操作此订单' }, { status: 403 });
+  }
+
   if (order.status !== 'accepted' && order.status !== 'rejected') {
     return Response.json({ success: false, message: '当前状态不可提交' }, { status: 400 });
   }

@@ -16,7 +16,13 @@ export async function onRequestGet(context) {
 
   if (platform) query = query.eq('platform', platform);
   if (type) query = query.eq('type', type);
-  if (keyword) query = query.or(`title.ilike.%${keyword}%,copy_text.ilike.%${keyword}%`);
+  if (keyword) {
+    // 转义 PostgREST filter 中的特殊字符，防止注入
+    const safeKeyword = keyword.replace(/[%_.,()\\'"]/g, '');
+    if (safeKeyword) {
+      query = query.or(`title.ilike.%${safeKeyword}%,copy_text.ilike.%${safeKeyword}%`);
+    }
+  }
 
   const { data: materials } = await query;
   const result = (materials || []).map(m => ({
