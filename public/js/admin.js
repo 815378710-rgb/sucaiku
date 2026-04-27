@@ -385,7 +385,7 @@ function renderOrders() {
       (o.submitNote ? '<div class="note-box">📝 ' + escapeHtml(o.submitNote) + '</div>' : '') +
       (o.reviewNote ? '<div class="note-box note-review">💬 ' + escapeHtml(o.reviewNote) + '</div>' : '') +
       '<div class="admin-item-actions">' +
-        (o.status === 'submitted' ? '<button class="btn-sm btn-review" onclick="openReview(this)" data-order-id="' + o.id + '" data-title="' + escapeHtml(o.materialTitle) + '" data-user="' + escapeHtml(o.userName) + '" data-reward="' + o.reward + '">📋 审核</button>' : '') +
+        (o.status === 'submitted' ? '<button class="btn-sm btn-review" onclick="openReview(this)" data-order-id="' + o.id + '" data-title="' + escapeHtml(o.materialTitle) + '" data-user="' + escapeHtml(o.userName) + '" data-reward="' + (o.reward || 0) + '" data-post-url="' + escapeHtml(o.postUrl || '') + '" data-submit-note="' + escapeHtml(o.submitNote || '') + '">📋 审核</button>' : '') +
         (o.status === 'approved' ? '<button class="btn-sm btn-pay" onclick="markPaid(\'' + o.id + '\')">💰 打款</button>' : '') +
       '</div></div>';
   }).join('');
@@ -396,11 +396,25 @@ function openReview(btn) {
   var title = btn.dataset.title;
   var userName = btn.dataset.user;
   var reward = btn.dataset.reward;
-  document.getElementById('reviewContent').innerHTML =
-    '<div class="review-info">' +
+  var postUrl = btn.dataset.postUrl;
+  var submitNote = btn.dataset.submitNote;
+
+  var html = '<div class="review-info">' +
     '<div class="review-title">' + escapeHtml(title) + '</div>' +
-    '<div class="review-meta">接单人：' + escapeHtml(userName) + ' ｜ 赏金：¥' + reward + '</div>' +
-    '</div>';
+    '<div class="review-meta">接单人：' + escapeHtml(userName) + ' ｜ 赏金：¥' + reward + '</div>';
+
+  // 展示用户提交的发布链接
+  if (postUrl) {
+    html += '<div style="margin-top:10px;"><span style="font-size:12px;color:var(--text-sub);">🔗 发布链接：</span><br>' +
+      '<a href="' + escapeHtml(postUrl) + '" target="_blank" style="color:#2e7d32;word-break:break-all;">' + escapeHtml(postUrl) + '</a></div>';
+  }
+  if (submitNote) {
+    html += '<div style="margin-top:6px;"><span style="font-size:12px;color:var(--text-sub);">📝 用户备注：</span><br>' +
+      '<span style="font-size:13px;">' + escapeHtml(submitNote) + '</span></div>';
+  }
+  html += '</div>';
+
+  document.getElementById('reviewContent').innerHTML = html;
   document.getElementById('reviewNote').value = '';
   document.getElementById('reviewModal').classList.add('active');
   document.getElementById('reviewModal').dataset.orderId = orderId;
