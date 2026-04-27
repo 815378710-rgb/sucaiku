@@ -23,10 +23,9 @@ CONTAINER_NAME = "sucaiku-app"
 DOCKER = "/usr/local/bin/docker"  # 群晖NAS上docker的绝对路径
 SUDO = "echo 'CongShaoYu102@' | sudo -S -p ''"  # NAS上docker需要sudo
 
-# 本地维护的文件（不从GitHub覆盖）
-LOCAL_ONLY_FILES = {"server.js", "package.json", "Dockerfile", "docker-compose.yml", 
-                    "package-lock.json", "auto-deploy.py", "webhook-listener.py", 
-                    "webhook-Dockerfile"}
+# 需要跳过的文件（auto-deploy.py 和 webhook-listener.py 本身不覆盖，防止部署中断）
+# 其余所有文件（包括 server.js, package.json, Dockerfile 等）都从 GitHub 同步
+SKIP_FILES = {"auto-deploy.py", "webhook-listener.py", "start-webhook.sh"}
 
 IN_DOCKER = os.path.exists("/.dockerenv")
 
@@ -95,9 +94,9 @@ def sync_source_files():
     
     source_dir = os.path.join(temp_dir, extracted_dirs[0])
     
-    # 备份本地维护的文件
-    log("💾 备份本地部署文件...")
-    for f in LOCAL_ONLY_FILES:
+    # 只备份并恢复 skip 列表中的文件（防止部署脚本自己被覆盖中断）
+    log("💾 保护部署脚本...")
+    for f in SKIP_FILES:
         src = os.path.join(PROJECT_DIR, f)
         if os.path.exists(src):
             dst = os.path.join(DATA_DIR, f"_backup_{f}")
@@ -109,7 +108,7 @@ def sync_source_files():
     for root, dirs, files in os.walk(source_dir):
         dirs[:] = [d for d in dirs if not d.startswith('.')]
         for fname in files:
-            if fname in LOCAL_ONLY_FILES:
+            if fname in SKIP_FILES:
                 continue
             src_file = os.path.join(root, fname)
             rel_path = os.path.relpath(src_file, source_dir)
@@ -124,8 +123,8 @@ def sync_source_files():
     
     log(f"  ✅ 同步了 {synced} 个文件")
     
-    # 恢复本地维护的文件
-    for f in LOCAL_ONLY_FILES:
+    # 恢复受保护的部署脚本
+    for f in SKIP_FILES:
         backup = os.path.join(DATA_DIR, f"_backup_{f}")
         if os.path.exists(backup):
             dst = os.path.join(PROJECT_DIR, f)
