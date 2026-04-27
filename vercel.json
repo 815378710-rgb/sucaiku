@@ -1,7 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/material/:id", "destination": "/detail.html" },
-    { "source": "/orders", "destination": "/orders.html" },
-    { "source": "/admin", "destination": "/admin.html" }
-  ]
-}

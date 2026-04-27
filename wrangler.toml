@@ -1,6 +1,0 @@
-name = "sucaiku"
-compatibility_date = "2024-01-01"
-compatibility_flags = ["nodejs_compat"]
-
-[vars]
-SUPABASE_URL = "https://ydpramlgjgbdjpgsldml.supabase.co"

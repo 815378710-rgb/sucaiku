@@ -1,0 +1,14 @@
+FROM python:3.11-alpine
+
+WORKDIR /app
+
+# 安装curl、git和docker python SDK
+RUN apk add --no-cache curl git && \
+    pip install --no-cache-dir docker
+
+# 复制脚本
+COPY webhook-listener.py .
+
+EXPOSE 9001
+
+CMD ["python3", "webhook-listener.py"]

@@ -1,3 +1,7 @@
 node_modules/
+data/
 .env
-.vercel/
+*.log
+source_temp/
+source.zip
+_backup_*
