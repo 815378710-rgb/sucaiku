@@ -275,9 +275,9 @@ function renderMaterials() {
   list.innerHTML = filtered.map(function(m) {
     var platformLabel = m.platform === 'xiaohongshu' ? '📕 小红书' : '🎵 抖音';
     var typeLabel = { image: '📷 图文', video: '🎬 视频', comment: '💬 评论' }[m.type];
-    var slotsLeft = m.slotsLeft !== undefined ? m.slotsLeft : Math.max(0, m.maxOrders - m.currentOrders);
+    var slotsLeft = m.slotsLeft !== undefined ? m.slotsLeft : Math.max(0, (m.maxOrders || 0) - (m.currentOrders || 0));
     var isFull = slotsLeft <= 0;
-    var pct = m.maxOrders > 0 ? (m.currentOrders / m.maxOrders * 100) : 0;
+    var pct = (m.maxOrders || 0) > 0 ? ((m.currentOrders || 0) / m.maxOrders * 100) : 0;
 
     var thumbHtml = m.images.slice(0, 3).map(function(img) {
       return '<img src="' + escapeHtml(img) + '" alt="">';
@@ -295,7 +295,7 @@ function renderMaterials() {
       (thumbHtml ? '<div class="card-images">' + thumbHtml + '</div>' : '') +
       '<div class="card-progress"><div class="card-progress-fill" style="width:' + Math.min(pct, 100) + '%"></div></div>' +
       '<div class="card-footer">' +
-        '<div class="card-reward">¥' + m.reward + ' <span>/单</span></div>' +
+        '<div class="card-reward">¥' + (m.reward || 0) + ' <span>/单</span></div>' +
         '<button class="btn-accept-card ' + (isFull ? 'disabled' : '') + '" ' +
           'onclick="event.stopPropagation(); ' + (isFull ? '' : 'quickAccept(\'' + m.id + '\')') + '">' +
           (isFull ? '已满' : '接单') +

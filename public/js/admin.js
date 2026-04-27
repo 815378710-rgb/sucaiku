@@ -246,7 +246,7 @@ function renderMaterials(materials) {
       '</div>' +
       '<div class="admin-item-meta">' +
         '<span>' + platformLabel + '</span><span>' + typeLabel + '</span>' +
-        '<span>💰¥' + m.reward + '</span><span>👥' + m.currentOrders + '/' + m.maxOrders + '</span>' +
+        '<span>💰¥' + (m.reward || 0) + '</span><span>👥' + (m.currentOrders || 0) + '/' + (m.maxOrders || 0) + '</span>' +
         '<span>' + date + '</span>' +
       '</div>' +
       '<div class="admin-item-actions">' +
@@ -377,7 +377,7 @@ function renderOrders() {
       '<div class="admin-item-meta">' +
         '<span>👤 ' + escapeHtml(o.userName) + '</span>' +
         (o.userWechat ? '<span>💬 ' + escapeHtml(o.userWechat) + '</span>' : '') +
-        '<span>💰¥' + o.reward + '</span>' +
+        '<span>💰¥' + (o.reward || 0) + '</span>' +
         '<span>📅 ' + date + '</span>' +
       '</div>' +
       imagesHtml +
@@ -464,13 +464,26 @@ function renderUsers(users) {
       '<div class="admin-item-meta">' +
         (u.wechat ? '<span>💬 ' + escapeHtml(u.wechat) + '</span>' : '') +
         (u.qrcode ? '<span style="color:var(--success);">💳 已上传收款码</span>' : '<span style="color:var(--danger);">💳 未上传收款码</span>') +
-        '<span>📋接单' + u.totalOrders + '</span>' +
-        '<span>✅完成' + u.completedOrders + '</span>' +
-        '<span>💰¥' + u.totalEarned + '</span>' +
+        '<span>📋接单' + (u.totalOrders || 0) + '</span>' +
+        '<span>✅完成' + (u.completedOrders || 0) + '</span>' +
+        '<span>💰¥' + (u.totalEarned || 0) + '</span>' +
+      '</div>' +
+      '<div class="admin-item-actions">' +
+        '<button class="btn-sm btn-delete" onclick="deleteUser(\'' + u.id + '\')">🗑️ 删除用户</button>' +
       '</div>' +
       (u.qrcode ? '<div style="margin-top:8px;"><img src="' + escapeHtml(u.qrcode) + '" style="width:80px;height:80px;object-fit:contain;border-radius:8px;border:2px solid var(--border);cursor:pointer;" onclick="window.open(\'' + escapeHtml(u.qrcode) + '\')" alt="收款码"></div>' : '') +
       '</div>';
   }).join('');
+}
+
+async function deleteUser(id) {
+  if (!confirm('确定删除该用户？其所有历史订单也会被删除！')) return;
+  try {
+    var res = await adminFetch('/api/admin/users/' + id, { method: 'DELETE' });
+    var data = await res.json();
+    if (data.success) { showToast('✅ 已删除'); loadUsers(); loadStats(); }
+    else { showToast(data.message || '删除失败~'); }
+  } catch (e) { showToast('删除失败~'); }
 }
 
 // --- Announcements ---

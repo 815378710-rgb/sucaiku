@@ -26,8 +26,12 @@
 
       <!-- Copy Section -->
       <div class="copy-card">
+        <div class="copy-title" id="copyTitle" style="font-weight:700;font-size:15px;margin-bottom:8px;"></div>
         <div class="copy-text" id="copyText"></div>
-        <button class="btn-cute btn-copy" id="btnCopy" onclick="doCopyText()">📋 一键复制文案</button>
+        <div style="display:flex;gap:10px;margin-top:10px;">
+          <button class="btn-cute btn-copy" onclick="doCopyTitle()" style="flex:1;">📋 复制标题</button>
+          <button class="btn-cute btn-copy" onclick="doCopyText()" style="flex:1;">📋 复制正文</button>
+        </div>
       </div>
 
       <!-- Reward -->
@@ -71,7 +75,7 @@
         <div class="section-divider">
           <span>🔗 提交链接</span>
         </div>
-        <p class="submit-hint">把发布好的帖子「分享」给好友，然后把分享的文字直接粘贴过来就行~</p>
+        <p class="submit-hint">帖子发布后点击右上角分享，然后点击下面的【复制链接】粘贴过来就好</p>
         <div class="form-group" style="margin-top:12px;">
           <input type="text" id="postUrl" placeholder="直接粘贴分享的整段文字就行~" class="input-cute">
         </div>
@@ -139,13 +143,13 @@
       document.title = material.title;
       var platformLabel = material.platform === 'xiaohongshu' ? '📕 小红书' : '🎵 抖音';
       var typeLabel = {image:'📷 图文',video:'🎬 视频',comment:'💬 评论'}[material.type];
-      var slotsLeft = Math.max(0, material.maxOrders - material.currentOrders);
+      var slotsLeft = Math.max(0, (material.maxOrders || 0) - (material.currentOrders || 0));
 
       document.getElementById('detailTags').innerHTML =
         '<span class="tag tag-platform ' + escapeHtml(material.platform) + '">' + platformLabel + '</span>' +
         '<span class="tag tag-type">' + typeLabel + '</span>' +
         '<span class="tag ' + (slotsLeft <= 0 ? 'tag-full' : 'tag-slots') + '">' + (slotsLeft <= 0 ? '已满~' : '剩' + slotsLeft + '单') + '</span>' +
-        '<span class="tag tag-reward">¥' + material.reward + '/单</span>';
+        '<span class="tag tag-reward">¥' + (material.reward || 0) + '/单</span>';
 
       var imagesHtml = material.images.map(function(img) {
         return '<img src="' + escapeHtml(img) + '" onclick="viewImage(this.src)" alt="素材图片">';
@@ -153,11 +157,12 @@
       document.getElementById('detailImages').innerHTML = imagesHtml || '<div style="padding:20px;text-align:center;color:#ccc;">暂无图片~</div>';
 
       document.getElementById('detailTitle').textContent = material.title;
+      document.getElementById('copyTitle').textContent = material.title;
       document.getElementById('copyText').textContent = material.copyText || '暂无文案~';
-      document.getElementById('rewardAmount').textContent = '¥' + material.reward;
-      document.getElementById('slotsText').textContent = material.currentOrders + '/' + material.maxOrders + ' 已接单';
+      document.getElementById('rewardAmount').textContent = '¥' + (material.reward || 0);
+      document.getElementById('slotsText').textContent = (material.currentOrders || 0) + '/' + (material.maxOrders || 0) + ' 已接单';
 
-      var pct = material.maxOrders > 0 ? (material.currentOrders / material.maxOrders * 100) : 0;
+      var pct = (material.maxOrders || 0) > 0 ? ((material.currentOrders || 0) / material.maxOrders * 100) : 0;
       document.getElementById('slotsBarFill').style.width = Math.min(pct, 100) + '%';
 
       var btn = document.getElementById('btnAccept');
@@ -196,9 +201,9 @@
 
       var map = {
         submitted: { emoji: '⏳', label: '审核中', desc: '截图已提交，耐心等一下哦~', color: '#ff9800' },
-        approved:  { emoji: '🎉', label: '已通过', desc: '审核通过啦！赏金 ¥' + order.reward + ' 即将发放~', color: '#4caf50' },
+        approved:  { emoji: '🎉', label: '已通过', desc: '审核通过啦！赏金 ¥' + (order.reward || 0) + ' 即将发放~', color: '#4caf50' },
         rejected:  { emoji: '😿', label: '被驳回', desc: order.reviewNote || '不符合要求，修改后可以重新提交', color: '#f44336' },
-        paid:      { emoji: '💰', label: '已到账', desc: '¥' + order.reward + ' 已经到你口袋啦~', color: '#e91e63' }
+        paid:      { emoji: '💰', label: '已到账', desc: '¥' + (order.reward || 0) + ' 已经到你口袋啦~', color: '#e91e63' }
       };
       var s = map[order.status] || { emoji: '❓', label: order.status, desc: '', color: '#999' };
 
@@ -327,24 +332,34 @@
       }
     }
 
+    function doCopyTitle() {
+      var text = material ? material.title : '';
+      if (!text) { showToast('暂无标题~'); return; }
+      copyToClipboard(text, '标题');
+    }
+
     // WeChat-compatible copy
     function doCopyText() {
       var text = material ? material.copyText : '';
       if (!text) { showToast('暂无文案~'); return; }
+      copyToClipboard(text, '正文');
+    }
+
+    function copyToClipboard(text, label) {
 
       // Method 1: Clipboard API (modern browsers)
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(function() {
-          onCopySuccess();
+          onCopySuccess(label);
         }).catch(function() {
-          fallbackCopy(text);
+          fallbackCopy(text, label);
         });
       } else {
-        fallbackCopy(text);
+        fallbackCopy(text, label);
       }
     }
 
-    function fallbackCopy(text) {
+    function fallbackCopy(text, label) {
       // Method 2: execCommand with hidden textarea (works in WeChat)
       var ta = document.createElement('textarea');
       ta.value = text;
@@ -359,36 +374,29 @@
       try {
         var ok = document.execCommand('copy');
         if (ok) {
-          onCopySuccess();
+          onCopySuccess(label);
         } else {
           // Method 3: Show text for manual copy
-          showCopyFallback(text);
+          showCopyFallback(text, label);
         }
       } catch (e) {
-        showCopyFallback(text);
+        showCopyFallback(text, label);
       }
       document.body.removeChild(ta);
     }
 
-    function onCopySuccess() {
-      showToast('✅ 文案已复制~');
-      var btn = document.getElementById('btnCopy');
-      btn.textContent = '✅ 已复制';
-      btn.classList.add('copied');
-      setTimeout(function() {
-        btn.textContent = '📋 一键复制文案';
-        btn.classList.remove('copied');
-      }, 2000);
+    function onCopySuccess(label) {
+      showToast('✅ ' + (label || '文案') + '已复制~');
     }
 
-    function showCopyFallback(text) {
+    function showCopyFallback(text, label) {
       // Last resort: show a modal with text for manual long-press copy
       var overlay = document.createElement('div');
       overlay.className = 'modal-overlay active';
       var modal = document.createElement('div');
       modal.className = 'modal';
       modal.style.textAlign = 'center';
-      modal.innerHTML = '<h3>📋 长按复制文案</h3>' +
+      modal.innerHTML = '<h3>📋 长按复制' + escapeHtml(label || '文案') + '</h3>' +
         '<div class="copy-fallback-text" style="background:#f8f8f8;padding:16px;border-radius:12px;margin:16px 0;font-size:14px;line-height:1.6;word-break:break-all;user-select:all;-webkit-user-select:all;max-height:200px;overflow-y:auto;"></div>' +
         '<button class="btn-cute" onclick="this.closest(\'.modal-overlay\').remove()">关闭</button>';
       modal.querySelector('.copy-fallback-text').textContent = text;

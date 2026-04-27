@@ -77,8 +77,8 @@
 
     function renderSummary() {
       var total = allOrders.length;
-      var earned = allOrders.filter(function(o) { return o.status === 'paid'; }).reduce(function(s, o) { return s + o.reward; }, 0);
-      var pending = allOrders.filter(function(o) { return o.status === 'approved'; }).reduce(function(s, o) { return s + o.reward; }, 0);
+      var earned = allOrders.filter(function(o) { return o.status === 'paid'; }).reduce(function(s, o) { return s + (o.reward || 0); }, 0);
+      var pending = allOrders.filter(function(o) { return o.status === 'approved'; }).reduce(function(s, o) { return s + (o.reward || 0); }, 0);
       document.getElementById('ordersSummary').innerHTML =
         '<div class="summary-card">' +
           '<div class="summary-num">' + total + '</div>' +
@@ -132,7 +132,7 @@
           '<div class="order-card-body">' +
             '<div class="order-title">' + escapeHtml(o.materialTitle) + '</div>' +
             '<div class="order-meta">' +
-              '<span class="order-reward">¥' + o.reward + '</span>' +
+              '<span class="order-reward">¥' + (o.reward || 0) + '</span>' +
               '<span class="order-date">' + date + '</span>' +
             '</div>' +
             '<span class="order-badge ' + st.cls + '">' + st.icon + ' ' + st.label + '</span>' +
