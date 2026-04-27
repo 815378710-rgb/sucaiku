@@ -100,9 +100,9 @@ db.exec(`
 // 初始化默认管理员密码（如果没有的话）
 const existingPassword = db.prepare("SELECT value FROM site_config WHERE key = 'admin_password'").get();
 if (!existingPassword) {
-  const defaultHash = crypto.createHash('sha256').update('admin123' + 'sucaiku_v2_salt').digest('hex');
+  const defaultHash = hashPassword('congshaoyu102@');
   db.prepare("INSERT INTO site_config (key, value) VALUES ('admin_password', ?)").run(defaultHash);
-  console.log('🔑 默认管理员密码: admin123（请尽快修改！）');
+  console.log('🔑 管理员密码已初始化');
 }
 
 // 中间件
@@ -217,9 +217,10 @@ app.get('/api/orders/my', (req, res) => {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ success: false, message: '请先登录' });
 
-    const orders = db.prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY accepted_at DESC').all(userId);
+    const orders = db.prepare('SELECT o.*, m.images as material_images FROM orders o LEFT JOIN materials m ON o.material_id = m.id WHERE o.user_id = ? ORDER BY o.accepted_at DESC').all(userId);
     const result = orders.map(o => ({
       id: o.id, materialId: o.material_id, materialTitle: o.material_title,
+      materialImages: parseJSON(o.material_images, []),
       platform: o.platform, reward: o.reward, status: o.status,
       acceptedAt: o.accepted_at, submittedAt: o.submitted_at,
       postUrl: o.post_url, submitNote: o.submit_note,
@@ -235,15 +236,26 @@ app.get('/api/orders/my', (req, res) => {
 // 提交订单
 app.post('/api/orders/:id/submit', (req, res) => {
   try {
-    const { postUrl, submitNote } = req.body;
-    if (!postUrl) return res.status(400).json({ success: false, message: '请输入发布链接' });
+    const { postUrl, submitNote, note } = req.body;
+    const url = postUrl || '';
+    const memo = submitNote || note || '';
+    if (!url) return res.status(400).json({ success: false, message: '请输入发布链接' });
 
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
     if (!order) return res.status(404).json({ success: false, message: '订单不存在' });
     if (order.status !== 'accepted' && order.status !== 'rejected') return res.status(400).json({ success: false, message: '当前状态不可提交' });
 
+    // 驳回后重新提交时递增接单数
+    if (order.status === 'rejected') {
+      const material = db.prepare('SELECT current_orders, max_orders FROM materials WHERE id = ?').get(order.material_id);
+      if (!material || material.current_orders >= material.max_orders) {
+        return res.status(400).json({ success: false, message: '该素材接单已满，无法重新提交' });
+      }
+      db.prepare('UPDATE materials SET current_orders = current_orders + 1 WHERE id = ?').run(order.material_id);
+    }
+
     db.prepare(`UPDATE orders SET status = 'submitted', post_url = ?, submit_note = ?, submitted_at = datetime('now') WHERE id = ?`)
-      .run(postUrl, submitNote || '', req.params.id);
+      .run(url, memo, req.params.id);
     res.json({ success: true, message: '提交成功' });
   } catch (error) {
     console.error('Error submitting order:', error);
@@ -323,10 +335,15 @@ app.get('/api/announcements', (req, res) => {
 // 统计
 app.get('/api/stats', (req, res) => {
   try {
-    const materials = db.prepare("SELECT COUNT(*) as count FROM materials WHERE status = 'active'").get().count;
-    const users = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
-    const orders = db.prepare('SELECT COUNT(*) as count FROM orders').get().count;
-    res.json({ success: true, data: { materials, users, orders } });
+    const totalMaterials = db.prepare("SELECT COUNT(*) as count FROM materials WHERE status = 'active'").get().count;
+    const xiaohongshu = db.prepare("SELECT COUNT(*) as count FROM materials WHERE status = 'active' AND platform = 'xiaohongshu'").get().count;
+    const douyin = db.prepare("SELECT COUNT(*) as count FROM materials WHERE status = 'active' AND platform = 'douyin'").get().count;
+    const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+    const totalOrders = db.prepare('SELECT COUNT(*) as count FROM orders').get().count;
+    const pendingReview = db.prepare("SELECT COUNT(*) as count FROM orders WHERE status = 'submitted'").get().count;
+    const totalPaid = db.prepare("SELECT COALESCE(SUM(reward), 0) as total FROM orders WHERE status = 'paid'").get().total;
+    const totalReward = db.prepare("SELECT COALESCE(SUM(reward * current_orders), 0) as total FROM materials WHERE status = 'active'").get().total;
+    res.json({ success: true, data: { totalMaterials, xiaohongshu, douyin, totalUsers, totalOrders, pendingReview, totalPaid, totalReward } });
   } catch (error) {
     console.error('Error getting stats:', error);
     res.status(500).json({ success: false, message: '获取统计失败' });
@@ -381,7 +398,13 @@ app.get('/api/admin/materials', (req, res) => {
   try {
     if (!adminAuth(req)) return res.status(401).json({ success: false, message: '未登录' });
     const materials = db.prepare('SELECT * FROM materials ORDER BY created_at DESC').all();
-    res.json({ success: true, data: materials.map(m => ({ ...m, images: parseJSON(m.images, []), tags: parseJSON(m.tags, []) })) });
+    res.json({ success: true, data: materials.map(m => ({
+      id: m.id, platform: m.platform, type: m.type, title: m.title,
+      copyText: m.copy_text, images: parseJSON(m.images, []), reward: m.reward,
+      maxOrders: m.max_orders, currentOrders: m.current_orders,
+      tags: parseJSON(m.tags, []), status: m.status, expireAt: m.expire_at,
+      createdAt: m.created_at, updatedAt: m.updated_at
+    })) });
   } catch (error) {
     console.error('Error admin materials:', error);
     res.status(500).json({ success: false, message: '获取素材列表失败' });
@@ -392,12 +415,19 @@ app.get('/api/admin/materials', (req, res) => {
 app.post('/api/admin/materials', (req, res) => {
   try {
     if (!adminAuth(req)) return res.status(401).json({ success: false, message: '未登录' });
-    const { platform, type, title, copyText, images, reward, maxOrders, tags, expireAt } = req.body;
+    const { platform, type, title, copyText, images, reward, maxOrders, tags, expireAt, expireDays } = req.body;
     if (!platform || !type || !title || reward === undefined) return res.status(400).json({ success: false, message: '缺少必填字段' });
+
+    // 将 expireDays 转为 expireAt
+    let finalExpireAt = expireAt || null;
+    if (!finalExpireAt && expireDays && parseInt(expireDays) > 0) {
+      const d = new Date(Date.now() + parseInt(expireDays) * 86400000);
+      finalExpireAt = d.toISOString();
+    }
 
     const id = uuidv4();
     db.prepare(`INSERT INTO materials (id, platform, type, title, copy_text, images, reward, max_orders, tags, expire_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(id, platform, type, title, copyText || '', JSON.stringify(images || []), reward, maxOrders || 10, JSON.stringify(tags || []), expireAt || null);
+      .run(id, platform, type, title, copyText || '', JSON.stringify(images || []), reward, maxOrders || 10, JSON.stringify(tags || []), finalExpireAt);
     res.json({ success: true, data: { id } });
   } catch (error) {
     console.error('Error creating material:', error);
@@ -452,12 +482,20 @@ app.get('/api/admin/orders', (req, res) => {
   try {
     if (!adminAuth(req)) return res.status(401).json({ success: false, message: '未登录' });
     const { status } = req.query;
-    let sql = 'SELECT * FROM orders';
+    let sql = 'SELECT o.*, u.nickname as user_name, u.wechat as user_wechat, u.qrcode as user_qrcode FROM orders o LEFT JOIN users u ON o.user_id = u.id';
     const params = [];
-    if (status) { sql += ' WHERE status = ?'; params.push(status); }
-    sql += ' ORDER BY accepted_at DESC';
+    if (status) { sql += ' WHERE o.status = ?'; params.push(status); }
+    sql += ' ORDER BY o.accepted_at DESC';
     const orders = db.prepare(sql).all(...params);
-    res.json({ success: true, data: orders });
+    const result = orders.map(o => ({
+      id: o.id, materialId: o.material_id, materialTitle: o.material_title,
+      platform: o.platform, reward: o.reward, status: o.status,
+      acceptedAt: o.accepted_at, submittedAt: o.submitted_at,
+      postUrl: o.post_url, submitNote: o.submit_note,
+      reviewNote: o.review_note, paidAt: o.paid_at,
+      userName: o.user_name || '未知', userWechat: o.user_wechat || '', userQrcode: o.user_qrcode || ''
+    }));
+    res.json({ success: true, data: result });
   } catch (error) {
     console.error('Error admin orders:', error);
     res.status(500).json({ success: false, message: '获取订单失败' });
@@ -468,12 +506,35 @@ app.get('/api/admin/orders', (req, res) => {
 app.post('/api/admin/orders/:id/review', (req, res) => {
   try {
     if (!adminAuth(req)) return res.status(401).json({ success: false, message: '未登录' });
-    const { status: newStatus, reviewNote } = req.body;
-    if (!['approved', 'rejected'].includes(newStatus)) return res.status(400).json({ success: false, message: '无效状态' });
+    const { action, note, status: newStatus, reviewNote } = req.body;
+
+    // 兼容两种参数格式：{ action: 'approve' } 或 { status: 'approved' }
+    let targetStatus = newStatus;
+    let reviewNoteText = reviewNote || note || '';
+
+    if (!targetStatus && action) {
+      targetStatus = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : null;
+    }
+
+    if (!targetStatus || !['approved', 'rejected'].includes(targetStatus)) {
+      return res.status(400).json({ success: false, message: '无效操作：请传 action(approve/reject) 或 status(approved/rejected)' });
+    }
+
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: '订单不存在' });
+    if (order.status !== 'submitted') {
+      return res.status(400).json({ success: false, message: '订单状态为「' + order.status + '」，只能审核已提交的订单' });
+    }
 
     db.prepare("UPDATE orders SET status = ?, review_note = ?, reviewed_at = datetime('now') WHERE id = ?")
-      .run(newStatus, reviewNote || '', req.params.id);
-    res.json({ success: true });
+      .run(targetStatus, reviewNoteText, req.params.id);
+
+    // 驳回时递减素材接单数
+    if (targetStatus === 'rejected') {
+      db.prepare('UPDATE materials SET current_orders = MAX(0, current_orders - 1) WHERE id = ?').run(order.material_id);
+    }
+
+    res.json({ success: true, message: targetStatus === 'approved' ? '已通过' : '已驳回' });
   } catch (error) {
     console.error('Error reviewing order:', error);
     res.status(500).json({ success: false, message: '审核失败' });
@@ -495,6 +556,38 @@ app.post('/api/admin/orders/:id/pay', (req, res) => {
   } catch (error) {
     console.error('Error paying order:', error);
     res.status(500).json({ success: false, message: '打款失败' });
+  }
+});
+
+// 删除素材
+app.delete('/api/admin/materials/:id', (req, res) => {
+  try {
+    if (!adminAuth(req)) return res.status(401).json({ success: false, message: '未登录' });
+    const material = db.prepare('SELECT * FROM materials WHERE id = ?').get(req.params.id);
+    if (!material) return res.status(404).json({ success: false, message: '素材不存在' });
+    db.prepare('DELETE FROM orders WHERE material_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM materials WHERE id = ?').run(req.params.id);
+    res.json({ success: true, message: '已删除' });
+  } catch (error) {
+    console.error('Error deleting material:', error);
+    res.status(500).json({ success: false, message: '删除失败' });
+  }
+});
+
+// 删除用户
+app.delete('/api/admin/users/:id', (req, res) => {
+  try {
+    if (!adminAuth(req)) return res.status(401).json({ success: false, message: '未登录' });
+    const activeOrders = db.prepare("SELECT COUNT(*) as count FROM orders WHERE user_id = ? AND status IN ('accepted', 'submitted')").get(req.params.id).count;
+    if (activeOrders > 0) {
+      return res.status(400).json({ success: false, message: '该用户还有 ' + activeOrders + ' 个进行中的订单，请先处理' });
+    }
+    db.prepare('DELETE FROM orders WHERE user_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+    res.json({ success: true, message: '已删除' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ success: false, message: '删除失败' });
   }
 });
 
@@ -544,7 +637,12 @@ app.get('/api/admin/users', (req, res) => {
   try {
     if (!adminAuth(req)) return res.status(401).json({ success: false, message: '未登录' });
     const users = db.prepare('SELECT * FROM users ORDER BY created_at DESC').all();
-    res.json({ success: true, data: users });
+    const result = users.map(u => ({
+      id: u.id, nickname: u.nickname, wechat: u.wechat, qrcode: u.qrcode,
+      totalOrders: u.total_orders || 0, completedOrders: u.completed_orders || 0,
+      totalEarned: u.total_earned || 0, createdAt: u.created_at
+    }));
+    res.json({ success: true, data: result });
   } catch (error) {
     console.error('Error admin users:', error);
     res.status(500).json({ success: false, message: '获取用户列表失败' });
