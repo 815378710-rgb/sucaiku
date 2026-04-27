@@ -43,7 +43,9 @@ export async function onRequestPost(context) {
   const token = generateToken();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   await supabase.from('admin_tokens').insert({ token, expires_at: expiresAt });
-  await supabase.from('admin_tokens').delete().lt('expires_at', new Date().toISOString());
+
+  // 异步清理过期 token（不阻塞登录响应）
+  supabase.from('admin_tokens').delete().lt('expires_at', new Date().toISOString()).then(() => {}).catch(() => {});
 
   return Response.json({ success: true, token });
 }

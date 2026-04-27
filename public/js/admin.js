@@ -154,6 +154,7 @@ async function publishMaterial(e) {
       var uploadPromises = files.map(function(file) {
         var fd = new FormData();
         fd.append('file', file);
+        fd.append('userId', 'admin');
         return fetch('/api/upload', { method: 'POST', body: fd })
           .then(function(r) { return r.json(); })
           .then(function(d) {
@@ -307,11 +308,17 @@ async function saveEdit() {
     reward: parseFloat(document.getElementById('editReward').value),
     maxOrders: parseInt(document.getElementById('editMaxOrders').value)
   };
+  var btn = document.querySelector('#editModal .btn-confirm');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
   try {
     var res = await adminFetch('/api/admin/materials/' + id, { method: 'PUT', body: JSON.stringify(updates) });
     var data = await res.json();
     if (data.success) { showToast('✅ 更新成功'); closeEdit(); loadMaterials(); }
+    else { showToast(data.message || '更新失败~'); }
   } catch (e) { showToast('更新失败~'); }
+  btn.disabled = false;
+  btn.textContent = '保存';
 }
 
 // --- Orders ---
@@ -404,6 +411,8 @@ function closeReview() { document.getElementById('reviewModal').classList.remove
 async function reviewOrder(action) {
   var orderId = document.getElementById('reviewModal').dataset.orderId;
   var note = document.getElementById('reviewNote').value;
+  // 禁用审核按钮防止重复点击
+  document.querySelectorAll('#reviewModal .btn-group button').forEach(function(b) { b.disabled = true; });
   try {
     var res = await adminFetch('/api/admin/orders/' + orderId + '/review', {
       method: 'POST', body: JSON.stringify({ action: action, note: note })
@@ -414,8 +423,11 @@ async function reviewOrder(action) {
       closeReview();
       loadOrders();
       loadStats();
+    } else {
+      showToast(data.message || '操作失败~');
     }
   } catch (e) { showToast('操作失败~'); }
+  document.querySelectorAll('#reviewModal .btn-group button').forEach(function(b) { b.disabled = false; });
 }
 
 async function markPaid(orderId) {

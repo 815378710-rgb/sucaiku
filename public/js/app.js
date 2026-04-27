@@ -119,6 +119,7 @@ async function registerUser() {
     var qrcodeUrl = '';
     var fd = new FormData();
     fd.append('file', pendingQrcodeFile);
+    fd.append('userId', localStorage.getItem('userId') || '');
     var upRes = await fetch('/api/upload', { method: 'POST', body: fd });
     if (!upRes.ok) {
       showToast('收款码上传失败(' + upRes.status + ')，再试试~');

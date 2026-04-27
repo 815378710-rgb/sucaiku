@@ -8,7 +8,7 @@ export async function onRequestPost(context) {
   const wx = (body?.wechat || '').trim();
   if (!wx) return Response.json({ success: false, message: '请输入微信号' }, { status: 400 });
 
-  const { data: user } = await supabase.from('users').select('*').eq('wechat', wx).single();
+  const { data: user } = await supabase.from('users').select('*').ilike('wechat', wx).single();
   if (!user) return Response.json({ success: false, message: '未找到该微信号关联的账号' }, { status: 404 });
 
   await supabase.from('users').update({ last_active_at: new Date().toISOString() }).eq('id', user.id);

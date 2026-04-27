@@ -208,20 +208,25 @@
       document.getElementById('statusDesc').textContent = s.desc;
 
       if (order.status === 'rejected') {
-        var retryBtn = document.createElement('button');
-        retryBtn.className = 'btn-cute';
-        retryBtn.style.marginTop = '16px';
-        retryBtn.textContent = '🔄 重新提交';
-        retryBtn.onclick = function() {
-          card.style.display = 'none';
-          document.getElementById('submitSection').style.display = 'block';
-          document.getElementById('postUrl').value = '';
-          document.getElementById('submitNote').value = '';
-          var btn = document.getElementById('btnSubmitReview');
-          btn.disabled = false;
-          btn.textContent = '📤 提交审核';
-        };
-        card.appendChild(retryBtn);
+        // 防止重复创建按钮
+        if (!document.getElementById('retryBtn')) {
+          var retryBtn = document.createElement('button');
+          retryBtn.id = 'retryBtn';
+          retryBtn.className = 'btn-cute';
+          retryBtn.style.marginTop = '16px';
+          retryBtn.textContent = '🔄 重新提交';
+          retryBtn.onclick = function() {
+            retryBtn.disabled = true;
+            card.style.display = 'none';
+            document.getElementById('submitSection').style.display = 'block';
+            document.getElementById('postUrl').value = '';
+            document.getElementById('submitNote').value = '';
+            var btn = document.getElementById('btnSubmitReview');
+            btn.disabled = false;
+            btn.textContent = '📤 提交审核';
+          };
+          card.appendChild(retryBtn);
+        }
       }
     }
 

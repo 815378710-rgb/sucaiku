@@ -21,13 +21,11 @@ export async function onRequestPost(context) {
     if (!updated || updated.length === 0) {
       return Response.json({ success: false, message: '订单状态已变更，请刷新' }, { status: 400 });
     }
-    const { data: user } = await supabase.from('users').select('completed_orders, total_earned').eq('id', order.user_id).single();
-    if (user) {
-      await supabase.from('users').update({
-        completed_orders: (user.completed_orders || 0) + 1,
-        total_earned: (user.total_earned || 0) + order.reward
-      }).eq('id', order.user_id);
-    }
+    // 使用原子递增更新用户统计，防止并发时数据不一致
+    await supabase.from('users').update({
+      completed_orders: supabase.raw('completed_orders + 1'),
+      total_earned: supabase.raw('total_earned + ' + (order.reward || 0))
+    }).eq('id', order.user_id);
     return Response.json({ success: true, message: '已通过~' });
   }
 
@@ -39,10 +37,8 @@ export async function onRequestPost(context) {
     if (!updated || updated.length === 0) {
       return Response.json({ success: false, message: '订单状态已变更，请刷新' }, { status: 400 });
     }
-    const { data: mat } = await supabase.from('materials').select('current_orders').eq('id', order.material_id).single();
-    if (mat && mat.current_orders > 0) {
-      await supabase.from('materials').update({ current_orders: mat.current_orders - 1 }).eq('id', order.material_id);
-    }
+    // 使用原子递减，防止竞态导致 current_orders 变成负数
+    await supabase.rpc('decrement_orders', { mat_id: order.material_id });
     return Response.json({ success: true, message: '已驳回' });
   }
 

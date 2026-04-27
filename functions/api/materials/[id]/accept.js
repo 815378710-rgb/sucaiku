@@ -57,19 +57,18 @@ export async function onRequestPost(context) {
       reward: material.reward, status: 'accepted'
     });
   } catch (err) {
-    // 回滚 current_orders，防止库存永久丢失
+    // 回滚 current_orders，使用原子递减防止竞态
     try {
-      const { data: mat } = await supabase.from('materials').select('current_orders').eq('id', params.id).single();
-      if (mat && mat.current_orders > 0) {
-        await supabase.from('materials').update({ current_orders: mat.current_orders - 1 }).eq('id', params.id);
-      }
+      await supabase.rpc('decrement_orders', { mat_id: params.id });
     } catch (rollbackErr) {
       console.error('回滚 current_orders 失败:', rollbackErr);
     }
     return Response.json({ success: false, message: '创建订单失败，请重试' }, { status: 500 });
   }
+  // 使用原子递增更新用户统计，防止并发时数据不一致
   await supabase.from('users').update({
-    total_orders: user.total_orders + 1, last_active_at: new Date().toISOString()
+    total_orders: supabase.raw('total_orders + 1'),
+    last_active_at: new Date().toISOString()
   }).eq('id', userId);
 
   return Response.json({ success: true, message: '接单成功~', data: { orderId } });

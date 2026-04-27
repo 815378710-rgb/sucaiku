@@ -15,6 +15,9 @@ export async function onRequestPost(context) {
   if (!wx) {
     return Response.json({ success: false, message: '请填写微信号~' }, { status: 400 });
   }
+  if (wx.length > 50) {
+    return Response.json({ success: false, message: '微信号不能超过50个字符' }, { status: 400 });
+  }
 
   // 检查昵称是否已被占用（无论微信号是否为空）
   const { data: nickTaken } = await supabase.from('users').select('id, wechat').eq('nickname', nick).limit(1);

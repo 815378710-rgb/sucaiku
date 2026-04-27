@@ -5,7 +5,14 @@ export async function onRequestPost(context) {
   const { request, env } = context;
   const supabase = getSupabase(env);
 
+  // 校验用户身份：要求传入 userId 且存在于 users 表
   const formData = await request.formData();
+  const userId = formData.get('userId');
+  if (!userId) return Response.json({ success: false, message: '请先登录' }, { status: 401 });
+
+  const { data: user } = await supabase.from('users').select('id').eq('id', userId).single();
+  if (!user) return Response.json({ success: false, message: '用户不存在' }, { status: 401 });
+
   const file = formData.get('file');
   if (!file) return Response.json({ success: false, message: '没有文件' }, { status: 400 });
 

@@ -36,17 +36,12 @@ export async function onRequestPost(context) {
   if (!material) return Response.json({ success: false, message: '素材已被删除' }, { status: 400 });
 
   if (wasRejected) {
-    // 使用乐观锁防止竞态
-    const { data: mat } = await supabase.from('materials').select('current_orders').eq('id', order.material_id).single();
-    if (mat) {
-      const { error } = await supabase.from('materials').update({
-        current_orders: mat.current_orders + 1
-      }).eq('id', order.material_id).eq('current_orders', mat.current_orders);
-      if (error) {
-        // 乐观锁失败，重新读取再试一次
-        const { data: mat2 } = await supabase.from('materials').select('current_orders').eq('id', order.material_id).single();
-        if (mat2) await supabase.from('materials').update({ current_orders: mat2.current_orders + 1 }).eq('id', order.material_id);
-      }
+    // 使用原子递增 RPC 防止竞态
+    const { data: updated, error: rpcError } = await supabase.rpc('increment_orders', {
+      mat_id: order.material_id
+    });
+    if (rpcError || updated === 0) {
+      return Response.json({ success: false, message: '该素材接单已满，无法重新提交' }, { status: 400 });
     }
   }
 

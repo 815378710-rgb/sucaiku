@@ -25,11 +25,17 @@ export async function onRequestPost(context) {
   const expireAt = expireDays && parseInt(expireDays) > 0
     ? new Date(now.getTime() + parseInt(expireDays) * 86400000).toISOString() : null;
 
+  const titleTrimmed = title.trim();
+  if (titleTrimmed.length > 100) return Response.json({ success: false, message: '标题不能超过100字' }, { status: 400 });
+  if ((copyText || '').length > 5000) return Response.json({ success: false, message: '文案不能超过5000字' }, { status: 400 });
+  const rewardNum = parseFloat(reward);
+  if (rewardNum > 99999) return Response.json({ success: false, message: '赏金不能超过99999' }, { status: 400 });
+
   const material = {
-    id: crypto.randomUUID(), platform, type, title: title.trim(),
-    copy_text: (copyText || '').trim(), images: images || [],
-    reward: parseFloat(reward), max_orders: Math.max(1, parseInt(maxOrders) || 10),
-    current_orders: 0, tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+    id: crypto.randomUUID(), platform, type, title: titleTrimmed,
+    copy_text: (copyText || '').trim().slice(0, 5000), images: images || [],
+    reward: rewardNum, max_orders: Math.max(1, parseInt(maxOrders) || 10),
+    current_orders: 0, tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean).slice(0, 20) : [],
     status: 'active', expire_at: expireAt
   };
 

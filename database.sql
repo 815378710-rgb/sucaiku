@@ -97,3 +97,17 @@ BEGIN
   RETURN updated_rows;
 END;
 $$ LANGUAGE plpgsql;
+
+-- 原子递减接单数函数（防止竞态导致负数）
+CREATE OR REPLACE FUNCTION decrement_orders(mat_id UUID)
+RETURNS INTEGER AS $$
+DECLARE
+  updated_rows INTEGER;
+BEGIN
+  UPDATE materials
+  SET current_orders = current_orders - 1, updated_at = now()
+  WHERE id = mat_id AND current_orders > 0;
+  GET DIAGNOSTICS updated_rows = ROW_COUNT;
+  RETURN updated_rows;
+END;
+$$ LANGUAGE plpgsql;
