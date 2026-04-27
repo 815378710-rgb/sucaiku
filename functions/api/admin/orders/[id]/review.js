@@ -22,10 +22,10 @@ export async function onRequestPost(context) {
       return Response.json({ success: false, message: '订单状态已变更，请刷新' }, { status: 400 });
     }
     // 使用原子递增更新用户统计，防止并发时数据不一致
-    await supabase.from('users').update({
-      completed_orders: supabase.raw('completed_orders + 1'),
-      total_earned: supabase.raw('total_earned + ' + (order.reward || 0))
-    }).eq('id', order.user_id);
+    await supabase.rpc('increment_user_completed', {
+      uid: order.user_id,
+      reward_amount: order.reward || 0
+    });
     return Response.json({ success: true, message: '已通过~' });
   }
 

@@ -283,7 +283,7 @@ async function deleteMaterial(id) {
 }
 
 function editMaterial(id) {
-  fetch('/api/materials/' + id)
+  adminFetch('/api/materials/' + id)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.success) {

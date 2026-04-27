@@ -66,10 +66,7 @@ export async function onRequestPost(context) {
     return Response.json({ success: false, message: '创建订单失败，请重试' }, { status: 500 });
   }
   // 使用原子递增更新用户统计，防止并发时数据不一致
-  await supabase.from('users').update({
-    total_orders: supabase.raw('total_orders + 1'),
-    last_active_at: new Date().toISOString()
-  }).eq('id', userId);
+  await supabase.rpc('increment_user_orders', { uid: userId });
 
   return Response.json({ success: true, message: '接单成功~', data: { orderId } });
 }

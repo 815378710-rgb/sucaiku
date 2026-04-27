@@ -45,10 +45,19 @@ export async function onRequestPost(context) {
     }
   }
 
-  await supabase.from('orders').update({
+  // 使用状态条件更新，确保状态转换合法
+  const { data: updatedOrder, error: updateError } = await supabase.from('orders').update({
     status: 'submitted', submitted_at: new Date().toISOString(),
     post_url: url, submit_note: note.trim()
-  }).eq('id', params.id);
+  }).eq('id', params.id).eq('status', wasRejected ? 'rejected' : 'accepted').select();
+
+  if (!updatedOrder || updatedOrder.length === 0) {
+    // 回滚 current_orders（如果是 rejected 重新提交）
+    if (wasRejected) {
+      await supabase.rpc('decrement_orders', { mat_id: order.material_id });
+    }
+    return Response.json({ success: false, message: '订单状态已变更，请刷新' }, { status: 400 });
+  }
 
   return Response.json({ success: true, message: '链接已提交，等审核哦~' });
 }

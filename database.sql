@@ -111,3 +111,50 @@ BEGIN
   RETURN updated_rows;
 END;
 $$ LANGUAGE plpgsql;
+
+-- 原子递增用户接单数
+CREATE OR REPLACE FUNCTION increment_user_orders(uid UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE users
+  SET total_orders = total_orders + 1, last_active_at = now()
+  WHERE id = uid;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 原子递增用户完成单数和收益
+CREATE OR REPLACE FUNCTION increment_user_completed(uid UUID, reward_amount NUMERIC)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE users
+  SET completed_orders = completed_orders + 1,
+      total_earned = total_earned + reward_amount
+  WHERE id = uid;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 仪表盘统计聚合（保证数据一致性）
+CREATE OR REPLACE FUNCTION get_dashboard_stats(now_time TIMESTAMPTZ)
+RETURNS TABLE (
+  total_materials BIGINT,
+  xiaohongshu BIGINT,
+  douyin BIGINT,
+  total_reward NUMERIC,
+  total_orders BIGINT,
+  total_users BIGINT,
+  pending_review BIGINT,
+  total_paid NUMERIC
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    (SELECT COUNT(*) FROM materials WHERE status = 'active' AND (expire_at IS NULL OR expire_at > now_time)),
+    (SELECT COUNT(*) FROM materials WHERE status = 'active' AND (expire_at IS NULL OR expire_at > now_time) AND platform = 'xiaohongshu'),
+    (SELECT COUNT(*) FROM materials WHERE status = 'active' AND (expire_at IS NULL OR expire_at > now_time) AND platform = 'douyin'),
+    (SELECT COALESCE(SUM(reward * current_orders), 0) FROM materials WHERE status = 'active' AND (expire_at IS NULL OR expire_at > now_time)),
+    (SELECT COUNT(*) FROM orders),
+    (SELECT COUNT(*) FROM users),
+    (SELECT COUNT(*) FROM orders WHERE status = 'submitted'),
+    (SELECT COALESCE(SUM(reward), 0) FROM orders WHERE status = 'paid');
+END;
+$$ LANGUAGE plpgsql;

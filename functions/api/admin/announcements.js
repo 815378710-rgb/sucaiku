@@ -19,7 +19,12 @@ export async function onRequestPost(context) {
   const { title, content, pinned } = body || {};
   if (!title || !title.trim()) return Response.json({ success: false, message: '请输入公告标题' }, { status: 400 });
 
-  const ann = { id: crypto.randomUUID(), title: title.trim(), content: (content || '').trim(), pinned: !!pinned, active: true };
+  const titleTrimmed = title.trim();
+  if (titleTrimmed.length > 100) return Response.json({ success: false, message: '标题不能超过100字' }, { status: 400 });
+  const contentTrimmed = (content || '').trim();
+  if (contentTrimmed.length > 2000) return Response.json({ success: false, message: '内容不能超过2000字' }, { status: 400 });
+
+  const ann = { id: crypto.randomUUID(), title: titleTrimmed, content: contentTrimmed, pinned: !!pinned, active: true };
   await supabase.from('announcements').insert(ann);
   return Response.json({ success: true, data: ann });
 }

@@ -33,7 +33,7 @@ function checkUser() {
   if (userId && nickname) {
     // 先展示UI，后台静默验证
     showUserUI(nickname);
-    fetch('/api/user/' + userId)
+    fetch('/api/user/' + userId, { headers: { 'x-user-id': userId } })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.success) {
@@ -312,6 +312,11 @@ async function quickAccept(id) {
     showSetupModal();
     return;
   }
+  // 防止重复点击
+  var btn = event.target;
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ 接单中...';
   try {
     var res = await fetch('/api/materials/' + id + '/accept', {
       method: 'POST',
@@ -327,6 +332,9 @@ async function quickAccept(id) {
     }
   } catch (e) {
     showToast('网络不太好~');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '接单';
   }
 }
 

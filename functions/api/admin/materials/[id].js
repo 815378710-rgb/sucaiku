@@ -14,10 +14,14 @@ export async function onRequestPut(context) {
     if (!title.trim() || title.trim().length > 100) return Response.json({ success: false, message: '标题需在1-100字之间' }, { status: 400 });
     updates.title = title.trim();
   }
-  if (copyText !== undefined) updates.copy_text = copyText.trim();
+  if (copyText !== undefined) {
+    if (copyText.trim().length > 5000) return Response.json({ success: false, message: '文案不能超过5000字' }, { status: 400 });
+    updates.copy_text = copyText.trim();
+  }
   if (reward !== undefined) {
     const r = parseFloat(reward);
     if (isNaN(r) || r <= 0) return Response.json({ success: false, message: '赏金必须大于0' }, { status: 400 });
+    if (r > 99999) return Response.json({ success: false, message: '赏金不能超过99999' }, { status: 400 });
     updates.reward = r;
   }
   if (maxOrders !== undefined) {
@@ -25,7 +29,7 @@ export async function onRequestPut(context) {
     if (isNaN(mo) || mo < 1) return Response.json({ success: false, message: '最大接单数至少为1' }, { status: 400 });
     updates.max_orders = mo;
   }
-  if (tags !== undefined) updates.tags = tags.split(',').map(t => t.trim()).filter(Boolean);
+  if (tags !== undefined) updates.tags = tags.split(',').map(t => t.trim()).filter(Boolean).slice(0, 20);
 
   await supabase.from('materials').update(updates).eq('id', params.id);
   return Response.json({ success: true });

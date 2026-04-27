@@ -6,6 +6,8 @@ export async function onRequestGet(context) {
   const supabase = getSupabase(env);
   const { data: m } = await supabase.from('materials').select('*').eq('id', params.id).single();
   if (!m) return Response.json({ success: false, message: '素材不存在' }, { status: 404 });
+  // 已归档的素材不对外展示
+  if (m.status === 'archived') return Response.json({ success: false, message: '素材已下架' }, { status: 404 });
   return Response.json({ success: true, data: {
     id: m.id, platform: m.platform, type: m.type, title: m.title,
     copyText: m.copy_text, images: m.images || [], reward: m.reward,
