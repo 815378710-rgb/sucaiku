@@ -14,7 +14,13 @@ export async function onRequestPost(context) {
   if (order.status !== 'submitted') return Response.json({ success: false, message: '只能审核已提交的订单' }, { status: 400 });
 
   if (action === 'approve') {
-    await supabase.from('orders').update({ status: 'approved', reviewed_at: new Date().toISOString(), review_note: note || '' }).eq('id', params.id);
+    // 使用状态条件更新，防止重复审核
+    const { data: updated, error } = await supabase.from('orders').update({
+      status: 'approved', reviewed_at: new Date().toISOString(), review_note: note || ''
+    }).eq('id', params.id).eq('status', 'submitted').select();
+    if (!updated || updated.length === 0) {
+      return Response.json({ success: false, message: '订单状态已变更，请刷新' }, { status: 400 });
+    }
     const { data: user } = await supabase.from('users').select('completed_orders, total_earned').eq('id', order.user_id).single();
     if (user) {
       await supabase.from('users').update({
@@ -26,10 +32,13 @@ export async function onRequestPost(context) {
   }
 
   if (action === 'reject') {
-    await supabase.from('orders').update({
+    const { data: updated } = await supabase.from('orders').update({
       status: 'rejected', reviewed_at: new Date().toISOString(),
       review_note: note || '不符合要求，请修改后重新提交'
-    }).eq('id', params.id);
+    }).eq('id', params.id).eq('status', 'submitted').select();
+    if (!updated || updated.length === 0) {
+      return Response.json({ success: false, message: '订单状态已变更，请刷新' }, { status: 400 });
+    }
     const { data: mat } = await supabase.from('materials').select('current_orders').eq('id', order.material_id).single();
     if (mat && mat.current_orders > 0) {
       await supabase.from('materials').update({ current_orders: mat.current_orders - 1 }).eq('id', order.material_id);

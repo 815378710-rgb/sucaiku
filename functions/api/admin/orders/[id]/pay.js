@@ -11,6 +11,12 @@ export async function onRequestPost(context) {
   if (!order) return Response.json({ success: false, message: '订单不存在' }, { status: 404 });
   if (order.status !== 'approved') return Response.json({ success: false, message: '只能标记已审核通过的订单' }, { status: 400 });
 
-  await supabase.from('orders').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', params.id);
+  // 使用条件更新防止重复打款
+  const { data: updated } = await supabase.from('orders').update({
+    status: 'paid', paid_at: new Date().toISOString()
+  }).eq('id', params.id).eq('status', 'approved').select();
+  if (!updated || updated.length === 0) {
+    return Response.json({ success: false, message: '订单状态已变更，请刷新' }, { status: 400 });
+  }
   return Response.json({ success: true, message: '已标记打款~' });
 }

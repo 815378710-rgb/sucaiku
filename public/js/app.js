@@ -178,6 +178,9 @@ async function loginByWechat() {
     showToast('请输入微信号~');
     return;
   }
+  var btn = document.querySelector('#loginModal .btn-primary');
+  btn.disabled = true;
+  btn.textContent = '⏳ 登录中...';
   try {
     var res = await fetch('/api/user/login', {
       method: 'POST',
@@ -196,6 +199,9 @@ async function loginByWechat() {
     }
   } catch (e) {
     showToast('网络不太好，再试试~');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔓 登录';
   }
 }
 

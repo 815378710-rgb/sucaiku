@@ -29,8 +29,18 @@ export async function onRequestPost(context) {
   if (!material) return Response.json({ success: false, message: '素材已被删除' }, { status: 400 });
 
   if (wasRejected) {
+    // 使用乐观锁防止竞态
     const { data: mat } = await supabase.from('materials').select('current_orders').eq('id', order.material_id).single();
-    if (mat) await supabase.from('materials').update({ current_orders: mat.current_orders + 1 }).eq('id', order.material_id);
+    if (mat) {
+      const { error } = await supabase.from('materials').update({
+        current_orders: mat.current_orders + 1
+      }).eq('id', order.material_id).eq('current_orders', mat.current_orders);
+      if (error) {
+        // 乐观锁失败，重新读取再试一次
+        const { data: mat2 } = await supabase.from('materials').select('current_orders').eq('id', order.material_id).single();
+        if (mat2) await supabase.from('materials').update({ current_orders: mat2.current_orders + 1 }).eq('id', order.material_id);
+      }
+    }
   }
 
   await supabase.from('orders').update({

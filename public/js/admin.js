@@ -145,22 +145,27 @@ async function publishMaterial(e) {
   btn.textContent = '上传图片中...';
 
   try {
-    // Step 1: Upload images to Supabase Storage
+    // Step 1: 并行上传图片
     var imageUrls = [];
-    if (imagesInput.files) {
-      for (var i = 0; i < imagesInput.files.length && i < 9; i++) {
+    if (imagesInput.files && imagesInput.files.length > 0) {
+      var files = Array.from(imagesInput.files).slice(0, 9);
+      var uploadPromises = files.map(function(file) {
         var fd = new FormData();
-        fd.append('file', imagesInput.files[i]);
-        var upRes = await fetch('/api/upload', { method: 'POST', body: fd });
-        var upData = await upRes.json();
-        if (upData.success) {
-          imageUrls.push(upData.url);
-        } else {
-          showToast('图片上传失败: ' + (upData.message || '未知错误'));
-          btn.disabled = false;
-          btn.textContent = '🚀 发布素材';
-          return;
-        }
+        fd.append('file', file);
+        return fetch('/api/upload', { method: 'POST', body: fd })
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (d.success) return d.url;
+            throw new Error(d.message || '上传失败');
+          });
+      });
+      try {
+        imageUrls = await Promise.all(uploadPromises);
+      } catch (uploadErr) {
+        showToast('图片上传失败: ' + uploadErr.message);
+        btn.disabled = false;
+        btn.textContent = '🚀 发布素材';
+        return;
       }
     }
 

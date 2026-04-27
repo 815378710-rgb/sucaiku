@@ -77,3 +77,23 @@ CREATE INDEX IF NOT EXISTS idx_materials_status ON materials(status);
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_material ON orders(material_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+
+-- 外键约束（防止孤儿订单）
+ALTER TABLE orders ADD CONSTRAINT IF NOT EXISTS fk_orders_material
+  FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE;
+ALTER TABLE orders ADD CONSTRAINT IF NOT EXISTS fk_orders_user
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+-- 原子递增接单数函数（防止竞态超额接单）
+CREATE OR REPLACE FUNCTION increment_orders(mat_id UUID)
+RETURNS INTEGER AS $$
+DECLARE
+  updated_rows INTEGER;
+BEGIN
+  UPDATE materials
+  SET current_orders = current_orders + 1, updated_at = now()
+  WHERE id = mat_id AND current_orders < max_orders;
+  GET DIAGNOSTICS updated_rows = ROW_COUNT;
+  RETURN updated_rows;
+END;
+$$ LANGUAGE plpgsql;
