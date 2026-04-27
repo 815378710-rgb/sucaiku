@@ -203,6 +203,7 @@ app.post('/api/materials/:id/accept', (req, res) => {
     db.prepare(`INSERT INTO orders (id, material_id, user_id, material_title, platform, reward, status) VALUES (?, ?, ?, ?, ?, ?, 'accepted')`)
       .run(orderId, req.params.id, userId, material.title, material.platform, material.reward);
     db.prepare('UPDATE materials SET current_orders = current_orders + 1 WHERE id = ?').run(req.params.id);
+    db.prepare('UPDATE users SET total_orders = total_orders + 1 WHERE id = ?').run(userId);
 
     res.json({ success: true, data: { id: orderId, materialId: req.params.id, userId, status: 'accepted' } });
   } catch (error) {
@@ -254,7 +255,7 @@ app.post('/api/orders/:id/submit', (req, res) => {
       db.prepare('UPDATE materials SET current_orders = current_orders + 1 WHERE id = ?').run(order.material_id);
     }
 
-    db.prepare(`UPDATE orders SET status = 'submitted', post_url = ?, submit_note = ?, submitted_at = datetime('now') WHERE id = ?`)
+    db.prepare(`UPDATE orders SET status = 'submitted', post_url = ?, submit_note = ?, submitted_at = datetime('now'), review_note = '', reviewed_at = NULL WHERE id = ?`)
       .run(url, memo, req.params.id);
     res.json({ success: true, message: '提交成功' });
   } catch (error) {
@@ -547,7 +548,7 @@ app.post('/api/admin/orders/:id/pay', (req, res) => {
     if (!adminAuth(req)) return res.status(401).json({ success: false, message: '未登录' });
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
     if (!order) return res.status(404).json({ success: false, message: '订单不存在' });
-    if (order.status !== 'approved') return res.status(400).json({ success: false, message: '订单未审核通过' });
+    if (order.status !== 'approved') return res.status(400).json({ success: false, message: '订单未审核通过，当前状态：' + order.status });
 
     db.prepare("UPDATE orders SET status = 'paid', paid_at = datetime('now') WHERE id = ?").run(req.params.id);
     db.prepare('UPDATE users SET completed_orders = completed_orders + 1, total_earned = total_earned + ? WHERE id = ?')
@@ -596,7 +597,10 @@ app.get('/api/admin/announcements', (req, res) => {
   try {
     if (!adminAuth(req)) return res.status(401).json({ success: false, message: '未登录' });
     const announcements = db.prepare('SELECT * FROM announcements ORDER BY created_at DESC').all();
-    res.json({ success: true, data: announcements.map(a => ({ ...a, pinned: !!a.pinned, active: !!a.active })) });
+    res.json({ success: true, data: announcements.map(a => ({
+      id: a.id, title: a.title, content: a.content,
+      pinned: !!a.pinned, active: !!a.active, createdAt: a.created_at
+    })) });
   } catch (error) {
     console.error('Error admin announcements:', error);
     res.status(500).json({ success: false, message: '获取公告失败' });

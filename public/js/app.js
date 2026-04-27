@@ -145,7 +145,7 @@ async function registerUser() {
     }
     var data = await res.json();
     if (data.success) {
-      localStorage.setItem('userId', data.data.userId);
+      localStorage.setItem('userId', data.data.id);
       localStorage.setItem('nickname', data.data.nickname);
       pendingQrcodeFile = null;
       showUserUI(data.data.nickname);
@@ -190,7 +190,7 @@ async function loginByWechat() {
     });
     var data = await res.json();
     if (data.success) {
-      localStorage.setItem('userId', data.data.userId);
+      localStorage.setItem('userId', data.data.id);
       localStorage.setItem('nickname', data.data.nickname);
       document.getElementById('loginModal').style.display = 'none';
       showUserUI(data.data.nickname);
