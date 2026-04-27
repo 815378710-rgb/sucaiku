@@ -31,21 +31,26 @@ function checkUser() {
   var userId = localStorage.getItem('userId');
   var nickname = localStorage.getItem('nickname');
   if (userId && nickname) {
-    // Verify user still exists on server
+    // 先展示UI，后台静默验证
+    showUserUI(nickname);
     fetch('/api/user/' + userId)
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.success) {
-          showUserUI(data.data.nickname);
+          // 同步最新昵称
+          if (data.data.nickname !== nickname) {
+            localStorage.setItem('nickname', data.data.nickname);
+            showUserUI(data.data.nickname);
+          }
         } else {
-          // User not found, clear local
+          // 用户不存在，清空但不自动弹窗，让用户主动操作
           localStorage.removeItem('userId');
           localStorage.removeItem('nickname');
           showSetupModal();
         }
       })
       .catch(function() {
-        showUserUI(nickname); // Offline, trust local
+        // 网络异常，保持当前UI
       });
   } else {
     showSetupModal();
@@ -86,6 +91,7 @@ function previewQrcode(input) {
 }
 
 async function registerUser() {
+  var btn = document.querySelector('#userSetupModal .btn-primary');
   var nickname = document.getElementById('userNickname').value.trim();
   var wechat = document.getElementById('userWechat').value.trim();
   if (!nickname) {
@@ -96,22 +102,33 @@ async function registerUser() {
     showToast('昵称太长啦，最多20个字~');
     return;
   }
+  if (!wechat) {
+    showToast('请填写微信号~');
+    return;
+  }
   if (!pendingQrcodeFile) {
     showToast('请上传收款码~');
     return;
   }
 
+  btn.disabled = true;
+  btn.textContent = '⏳ 注册中...';
+
   try {
-    // Step 1: Upload QR code to Supabase Storage
+    // Step 1: Upload QR code
     var qrcodeUrl = '';
     var fd = new FormData();
     fd.append('file', pendingQrcodeFile);
     var upRes = await fetch('/api/upload', { method: 'POST', body: fd });
+    if (!upRes.ok) {
+      showToast('收款码上传失败(' + upRes.status + ')，再试试~');
+      return;
+    }
     var upData = await upRes.json();
     if (upData.success) {
       qrcodeUrl = upData.url;
     } else {
-      showToast('收款码上传失败，再试试~');
+      showToast(upData.message || '收款码上传失败，再试试~');
       return;
     }
 
@@ -121,6 +138,10 @@ async function registerUser() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nickname: nickname, wechat: wechat, qrcode: qrcodeUrl })
     });
+    if (!res.ok) {
+      showToast('注册失败(' + res.status + ')，再试试~');
+      return;
+    }
     var data = await res.json();
     if (data.success) {
       localStorage.setItem('userId', data.data.userId);
@@ -132,7 +153,11 @@ async function registerUser() {
       showToast(data.message || '注册失败~');
     }
   } catch (e) {
+    console.error('注册出错:', e);
     showToast('网络不太好，再试试~');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💕 开始接单';
   }
 }
 

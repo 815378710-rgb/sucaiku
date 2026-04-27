@@ -12,6 +12,9 @@ export async function onRequestPost(context) {
   if (!nick || nick.length > 20) {
     return Response.json({ success: false, message: '昵称需在1-20字之间' }, { status: 400 });
   }
+  if (!wx) {
+    return Response.json({ success: false, message: '请填写微信号~' }, { status: 400 });
+  }
 
   let user = null;
   if (wx) {
