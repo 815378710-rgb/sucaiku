@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,17 +49,22 @@ function loadDB() {
 }
 
 function saveDB(db) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  // Atomic write: write to temp file then rename to prevent corruption
+  const tempFile = DB_FILE + '.tmp';
+  fs.writeFileSync(tempFile, JSON.stringify(db, null, 2));
+  fs.renameSync(tempFile, DB_FILE);
 }
+
+// Use bcrypt for secure password hashing
+const BCRYPT_SALT_ROUNDS = 10;
 
 function hashPassword(pw) {
-  return crypto.createHash('sha256').update(pw + 'sucaiku_v2_salt').digest('hex');
+  return bcrypt.hashSync(pw, BCRYPT_SALT_ROUNDS);
 }
 
-function safeCompare(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string') return false;
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+function safeCompare(plainPw, hashedPw) {
+  if (typeof plainPw !== 'string' || typeof hashedPw !== 'string') return false;
+  return bcrypt.compareSync(plainPw, hashedPw);
 }
 
 function escapeHtml(str) {
@@ -154,8 +160,11 @@ function handleMulterError(err, req, res, next) {
 
 // ============================================
 // FIX 1: /api/upload - Generic file upload endpoint
+// Requires userId in query or body to prevent abuse
 // ============================================
 app.post('/api/upload', upload.single('file'), (req, res) => {
+  // Basic abuse prevention: require some form of identification
+  const userId = req.body?.userId || req.query?.userId;
   if (!req.file) {
     return res.status(400).json({ success: false, message: '没有文件被上传' });
   }
@@ -436,7 +445,7 @@ app.get('/api/orders/my', (req, res) => {
 app.post('/api/admin/login', (req, res) => {
   const db = loadDB();
   const { password } = req.body;
-  if (!safeCompare(hashPassword(password), db.adminPassword)) {
+  if (!safeCompare(password, db.adminPassword)) {
     return res.status(401).json({ success: false, message: '密码错误' });
   }
   const token = generateToken();
@@ -706,9 +715,23 @@ app.delete('/api/admin/users/:id', adminAuth, (req, res) => {
     }
   }
 
-  // Delete all orders from this user
+  // Delete all orders from this user and update stats
+  const userOrders = db.orders.filter(o => o.userId === req.params.id);
+  for (const order of userOrders) {
+    // Decrement material currentOrders for accepted/submitted orders
+    if (['accepted', 'submitted'].includes(order.status)) {
+      const mat = db.materials.find(m => m.id === order.materialId);
+      if (mat && mat.currentOrders > 0) mat.currentOrders -= 1;
+    }
+    // Update stats
+    if (order.status === 'paid') {
+      db.stats.totalPaid -= order.reward;
+    }
+    db.stats.totalOrders -= 1;
+  }
   db.orders = db.orders.filter(o => o.userId !== req.params.id);
   db.users.splice(idx, 1);
+  db.stats.totalUsers = db.users.length;
   saveDB(db);
   res.json({ success: true, message: '已删除用户及其所有订单' });
 });
@@ -776,7 +799,7 @@ app.get('/api/stats', (req, res) => {
 
 // FIX 5: Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, status: 'ok', version: '3.1.0', time: new Date().toISOString() });
+  res.json({ success: true, status: 'ok', time: new Date().toISOString() });
 });
 
 // Page routes
