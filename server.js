@@ -79,18 +79,37 @@ function generateToken() {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Strip /zhongcao prefix before routing (for reverse proxy setups)
+// Request logging for debugging
 app.use((req, res, next) => {
-  console.log('[MIDDLEWARE] req.path:', req.path, 'req.url:', req.url);
-  if (req.path.startsWith('/zhongcao')) {
-    req.path = req.path.replace(/^\/zhongcao/, '');
-    const qIdx = req.url.indexOf('?');
-    req.url = req.path + (qIdx >= 0 ? req.url.substring(qIdx) : '');
-    console.log('[MIDDLEWARE] stripped -> req.path:', req.path, 'req.url:', req.url);
-  }
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.url}`);
   next();
 });
 
+// FIX: /zhongcao reverse proxy - MUST be before static and other routes
+// This handles the proxy without modifying req.path (which breaks Express routing)
+const http = require('http');
+app.use('/zhongcao', (req, res) => {
+  const target = req.originalUrl.replace(/^\/zhongcao/, '') || '/';
+  const opts = {
+    hostname: '127.0.0.1',
+    port: 8899,
+    path: target,
+    method: req.method,
+    headers: { ...req.headers, host: 'localhost:8899' },
+  };
+  const proxyReq = http.request(opts, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+  proxyReq.on('error', (e) => {
+    console.error('/zhongcao proxy error:', e.message);
+    res.status(502).json({ success: false, message: 'copy-board 服务不可用' });
+  });
+  req.pipe(proxyReq);
+});
+
+// Static files
 app.use(express.static('public'));
 
 // Admin auth middleware
@@ -134,13 +153,42 @@ function handleMulterError(err, req, res, next) {
 }
 
 // ============================================
+// FIX 1: /api/upload - Generic file upload endpoint
+// ============================================
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: '没有文件被上传' });
+  }
+  const url = `/uploads/${req.file.filename}`;
+  res.json({ success: true, url: url });
+});
+
+// ============================================
 // API: User
 // ============================================
 
+// FIX 2: /api/user/login - Login by wechat
+app.post('/api/user/login', (req, res) => {
+  const db = loadDB();
+  const { wechat } = req.body;
+  if (!wechat || !wechat.trim()) {
+    return res.status(400).json({ success: false, message: '请输入微信号' });
+  }
+  const user = db.users.find(u => u.wechat === wechat.trim());
+  if (!user) {
+    return res.status(404).json({ success: false, message: '用户不存在，请先注册' });
+  }
+  res.json({
+    success: true,
+    data: { id: user.id, nickname: user.nickname, wechat: user.wechat, qrcode: user.qrcode }
+  });
+});
+
 // Register / update user (with QR code upload)
+// FIX 3: Support both multipart upload AND JSON with qrcode URL
 app.post('/api/user/register', upload.single('qrcode'), (req, res) => {
   const db = loadDB();
-  let { nickname, wechat } = req.body;
+  let { nickname, wechat, qrcode } = req.body;
   nickname = (nickname || '').trim();
   wechat = (wechat || '').trim();
 
@@ -157,11 +205,10 @@ app.post('/api/user/register', upload.single('qrcode'), (req, res) => {
     user = db.users.find(u => u.wechat === wechat);
   }
   if (!user) {
-    // Only match by nickname if neither party has wechat (same person re-registering)
     user = db.users.find(u => u.nickname === nickname && !u.wechat);
   }
 
-  // Check for nickname collision (different wechat, same nickname)
+  // Check for nickname collision
   if (!user && wechat) {
     const nicknameTaken = db.users.find(u => u.nickname === nickname && u.wechat !== wechat);
     if (nicknameTaken) {
@@ -169,22 +216,28 @@ app.post('/api/user/register', upload.single('qrcode'), (req, res) => {
     }
   }
 
-  const qrcodeUrl = req.file ? `/uploads/${req.file.filename}` : null;
+  // FIX: Support both direct file upload AND pre-uploaded URL
+  let qrcodeUrl = null;
+  if (req.file) {
+    qrcodeUrl = `/uploads/${req.file.filename}`;
+  } else if (qrcode && qrcode.trim()) {
+    qrcodeUrl = qrcode.trim();
+  }
 
   if (user) {
     user.nickname = nickname;
     if (wechat) user.wechat = wechat;
-    if (qrcodeUrl) user.qrcode = qrcodeUrl; // Update QR code if new one uploaded
+    if (qrcodeUrl) user.qrcode = qrcodeUrl;
     user.lastActiveAt = new Date().toISOString();
     saveDB(db);
-    return res.json({ success: true, data: { userId: user.id, nickname: user.nickname } });
+    return res.json({ success: true, data: { userId: user.id, nickname: user.nickname, qrcode: user.qrcode } });
   }
 
   user = {
     id: uuidv4(),
     nickname,
     wechat: wechat || '',
-    qrcode: qrcodeUrl || '', // Payment QR code
+    qrcode: qrcodeUrl || '',
     totalOrders: 0,
     completedOrders: 0,
     totalEarned: 0,
@@ -231,27 +284,18 @@ app.get('/api/materials', (req, res) => {
     );
   }
 
-  // Sort by fullness: near-full (slotsLeft 1-3) > not full > full (slotsLeft=0)
   materials.sort((a, b) => {
     const aLeft = a.maxOrders - a.currentOrders;
     const bLeft = b.maxOrders - b.currentOrders;
     const aFullness = a.maxOrders > 0 ? a.currentOrders / a.maxOrders : 0;
     const bFullness = b.maxOrders > 0 ? b.currentOrders / b.maxOrders : 0;
-    
-    // Full items (slotsLeft=0) go last
     if (aLeft <= 0 && bLeft > 0) return 1;
     if (bLeft <= 0 && aLeft > 0) return -1;
-    
-    // Near-full (1-3 slots left) go first
     const aNearFull = aLeft > 0 && aLeft <= 3;
     const bNearFull = bLeft > 0 && bLeft <= 3;
     if (aNearFull && !bNearFull) return -1;
     if (bNearFull && !aNearFull) return 1;
-    
-    // Sort by fullness percentage (higher first)
     if (bFullness !== aFullness) return bFullness - aFullness;
-    
-    // Finally by creation time
     return new Date(b.createdAt) - new Date(a.createdAt);
   });
 
@@ -270,7 +314,7 @@ app.get('/api/materials/:id', (req, res) => {
   res.json({ success: true, data: material });
 });
 
-// Accept order (接单) - with concurrency-safe check
+// Accept order
 app.post('/api/materials/:id/accept', (req, res) => {
   const db = loadDB();
   const { userId } = req.body;
@@ -287,19 +331,15 @@ app.post('/api/materials/:id/accept', (req, res) => {
   if (material.expireAt && new Date(material.expireAt) <= new Date()) {
     return res.status(400).json({ success: false, message: '素材已过期' });
   }
-
-  // Check slots BEFORE creating order (concurrency guard)
   if (material.currentOrders >= material.maxOrders) {
     return res.status(400).json({ success: false, message: '手慢啦，接单已满~' });
   }
 
-  // Check duplicate
   const existing = db.orders.find(o => o.materialId === material.id && o.userId === userId && o.status !== 'rejected');
   if (existing) {
     return res.status(400).json({ success: false, message: '你已经接过这个素材啦~' });
   }
 
-  // Atomic: increment + create order
   material.currentOrders += 1;
   const order = {
     id: uuidv4(),
@@ -319,9 +359,7 @@ app.post('/api/materials/:id/accept', (req, res) => {
   };
   db.orders.push(order);
   db.stats.totalOrders += 1;
-
   user.totalOrders += 1;
-
   saveDB(db);
 
   res.json({
@@ -331,7 +369,7 @@ app.post('/api/materials/:id/accept', (req, res) => {
   });
 });
 
-// Submit order (提交帖子链接)
+// Submit order
 app.post('/api/orders/:id/submit', (req, res) => {
   const db = loadDB();
   const order = db.orders.find(o => o.id === req.params.id);
@@ -345,16 +383,12 @@ app.post('/api/orders/:id/submit', (req, res) => {
     return res.status(400).json({ success: false, message: '请填写帖子链接~' });
   }
 
-  // Basic URL validation
   const url = postUrl.trim();
   if (!/^https?:\/\/.+/i.test(url)) {
     return res.status(400).json({ success: false, message: '请输入有效的链接（以 http 或 https 开头）~' });
   }
 
-  // Re-increment slot count if re-submitting after rejection
   const wasRejected = order.status === 'rejected';
-
-  // Check material still exists (not deleted)
   const material = db.materials.find(m => m.id === order.materialId);
   if (!material) {
     return res.status(400).json({ success: false, message: '素材已被删除，无法提交' });
@@ -370,7 +404,6 @@ app.post('/api/orders/:id/submit', (req, res) => {
   }
 
   saveDB(db);
-
   res.json({ success: true, message: '链接已提交，等管理员审核哦~' });
 });
 
@@ -410,7 +443,7 @@ app.post('/api/admin/login', (req, res) => {
   db.adminTokens.push({
     token,
     createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
   });
   db.adminTokens = db.adminTokens.filter(t => new Date(t.expiresAt) > new Date());
   saveDB(db);
@@ -445,14 +478,17 @@ app.get('/api/admin/orders', adminAuth, (req, res) => {
 // Admin: review order
 app.post('/api/admin/orders/:id/review', adminAuth, (req, res) => {
   const db = loadDB();
-  const { action, note } = req.body;
+  const { action, note, status } = req.body;
   const order = db.orders.find(o => o.id === req.params.id);
   if (!order) return res.status(404).json({ success: false, message: '订单不存在' });
   if (order.status !== 'submitted') {
     return res.status(400).json({ success: false, message: '只能审核已提交的订单' });
   }
 
-  if (action === 'approve') {
+  // Support both 'action' and 'status' parameters
+  const effectiveAction = action || (status === 'approved' ? 'approve' : status === 'rejected' ? 'reject' : null);
+
+  if (effectiveAction === 'approve') {
     order.status = 'approved';
     order.reviewedAt = new Date().toISOString();
     order.reviewNote = note || '';
@@ -461,15 +497,17 @@ app.post('/api/admin/orders/:id/review', adminAuth, (req, res) => {
       user.completedOrders += 1;
       user.totalEarned += order.reward;
     }
-  } else if (action === 'reject') {
+  } else if (effectiveAction === 'reject') {
     order.status = 'rejected';
     order.reviewedAt = new Date().toISOString();
     order.reviewNote = note || '不符合要求，请修改后重新提交';
     const mat = db.materials.find(m => m.id === order.materialId);
     if (mat && mat.currentOrders > 0) mat.currentOrders -= 1;
+  } else {
+    return res.status(400).json({ success: false, message: '无效的操作类型' });
   }
   saveDB(db);
-  res.json({ success: true, message: action === 'approve' ? '已通过~' : '已驳回' });
+  res.json({ success: true, message: effectiveAction === 'approve' ? '已通过~' : '已驳回' });
 });
 
 // Admin: mark paid
@@ -496,7 +534,7 @@ app.get('/api/admin/materials', adminAuth, (req, res) => {
 
 app.post('/api/admin/materials', adminAuth, upload.array('images', 9), (req, res) => {
   const db = loadDB();
-  const { platform, type, title, copyText, reward, maxOrders, tags, expireDays } = req.body;
+  const { platform, type, title, copyText, reward, maxOrders, tags, expireDays, images: imageUrls } = req.body;
 
   if (!platform || !type || !title || !reward) {
     return res.status(400).json({ success: false, message: '请填写必要字段' });
@@ -518,7 +556,20 @@ app.post('/api/admin/materials', adminAuth, upload.array('images', 9), (req, res
     return res.status(400).json({ success: false, message: '文案不能超过5000字' });
   }
 
-  const images = req.files ? req.files.map(f => `/uploads/${f.filename}`) : [];
+  // Support both direct file upload AND pre-uploaded URLs
+  let images = [];
+  if (req.files && req.files.length > 0) {
+    images = req.files.map(f => `/uploads/${f.filename}`);
+  } else if (imageUrls) {
+    try {
+      const parsed = JSON.parse(imageUrls);
+      if (Array.isArray(parsed)) images = parsed;
+    } catch (e) {
+      // If not JSON, treat as comma-separated or single URL
+      images = imageUrls.split(',').map(u => u.trim()).filter(Boolean);
+    }
+  }
+
   const now = new Date();
   const expireAt = expireDays && parseInt(expireDays) > 0
     ? new Date(now.getTime() + parseInt(expireDays) * 86400000).toISOString()
@@ -556,7 +607,6 @@ app.put('/api/admin/materials/:id', adminAuth, (req, res) => {
   const idx = db.materials.findIndex(m => m.id === req.params.id);
   if (idx === -1) return res.status(404).json({ success: false, message: '素材不存在' });
 
-  // Only allow safe fields to be updated
   const { title, copyText, reward, maxOrders, tags } = req.body;
   if (title !== undefined) {
     if (!title.trim() || title.trim().length > 100) {
@@ -610,7 +660,6 @@ app.delete('/api/admin/materials/:id', adminAuth, (req, res) => {
   if (idx === -1) return res.status(404).json({ success: false, message: '素材不存在' });
   const material = db.materials[idx];
 
-  // Check for active/pending orders
   const activeOrders = db.orders.filter(o =>
     o.materialId === material.id && ['accepted', 'submitted'].includes(o.status)
   );
@@ -623,7 +672,6 @@ app.delete('/api/admin/materials/:id', adminAuth, (req, res) => {
 
   material.images.forEach(img => {
     const imgPath = path.join(__dirname, 'public', img);
-    // Path traversal protection
     const resolved = path.resolve(imgPath);
     const uploadsDir = path.resolve(UPLOAD_DIR);
     if (!resolved.startsWith(uploadsDir)) return;
@@ -639,6 +687,30 @@ app.get('/api/admin/users', adminAuth, (req, res) => {
   const db = loadDB();
   const users = [...db.users].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   res.json({ success: true, data: users });
+});
+
+// FIX 4: Add DELETE /api/admin/users/:id endpoint
+app.delete('/api/admin/users/:id', adminAuth, (req, res) => {
+  const db = loadDB();
+  const idx = db.users.findIndex(u => u.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ success: false, message: '用户不存在' });
+
+  const user = db.users[idx];
+  // Delete user's QR code image if exists
+  if (user.qrcode) {
+    const imgPath = path.join(__dirname, 'public', user.qrcode);
+    const resolved = path.resolve(imgPath);
+    const uploadsDir = path.resolve(UPLOAD_DIR);
+    if (resolved.startsWith(uploadsDir) && fs.existsSync(resolved)) {
+      fs.unlinkSync(resolved);
+    }
+  }
+
+  // Delete all orders from this user
+  db.orders = db.orders.filter(o => o.userId !== req.params.id);
+  db.users.splice(idx, 1);
+  saveDB(db);
+  res.json({ success: true, message: '已删除用户及其所有订单' });
 });
 
 // Announcements
@@ -702,6 +774,11 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
+// FIX 5: Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ success: true, status: 'ok', version: '3.1.0', time: new Date().toISOString() });
+});
+
 // Page routes
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/material/:id', (req, res) => res.sendFile(path.join(__dirname, 'public', 'detail.html')));
@@ -723,5 +800,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🎀 素材兼职平台 v2.1 已启动: http://localhost:${PORT}`);
+  console.log(`🎀 素材兼职平台 v3.1 已启动: http://localhost:${PORT}`);
 });
