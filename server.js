@@ -4,7 +4,6 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -55,16 +54,18 @@ function saveDB(db) {
   fs.renameSync(tempFile, DB_FILE);
 }
 
-// Use bcrypt for secure password hashing
-const BCRYPT_SALT_ROUNDS = 10;
+// Use PBKDF2 for secure password hashing (no external deps)
+const PASSWORD_SALT = 'sucaiku_v3_salt_2026';
 
 function hashPassword(pw) {
-  return bcrypt.hashSync(pw, BCRYPT_SALT_ROUNDS);
+  return crypto.pbkdf2Sync(pw, PASSWORD_SALT, 100000, 32, 'sha256').toString('hex');
 }
 
 function safeCompare(plainPw, hashedPw) {
   if (typeof plainPw !== 'string' || typeof hashedPw !== 'string') return false;
-  return bcrypt.compareSync(plainPw, hashedPw);
+  const hash = crypto.pbkdf2Sync(plainPw, PASSWORD_SALT, 100000, 32, 'sha256').toString('hex');
+  if (hash.length !== hashedPw.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(hashedPw));
 }
 
 function escapeHtml(str) {
