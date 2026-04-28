@@ -24,7 +24,8 @@ async function login() {
   if (!password) { errorEl.textContent = '请输入密码'; errorEl.style.display = 'block'; return; }
 
   try {
-    var res = await fetch('/api/admin/login', {
+    var apiBase = getApiBase();
+    var res = await fetch(apiBase + '/api/admin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: password })
@@ -60,7 +61,8 @@ function showPanel() {
 // --- Check auth ---
 document.addEventListener('DOMContentLoaded', function() {
   if (adminToken) {
-    fetch('/api/admin/materials', { headers: { 'x-admin-token': adminToken } })
+    var apiBase = getApiBase();
+    fetch(apiBase + '/api/admin/materials', { headers: { 'x-admin-token': adminToken } })
       .then(function(r) {
         if (r.ok) showPanel();
         else { adminToken = ''; localStorage.removeItem('adminToken'); }
