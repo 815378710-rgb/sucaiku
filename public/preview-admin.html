@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🔐 管理后台 - 预览</title>
+<style>
+:root {
+  --primary: #ff7eb3; --primary-dark: #e56a9a; --primary-light: #fff0f5;
+  --primary-glow: rgba(255,126,179,0.25); --accent: #ff9a76; --accent-light: #fff4ef;
+  --success: #7ec8a0; --success-light: #f0faf4; --danger: #f06292; --danger-light: #fce4ec;
+  --warning-dark: #f5a623; --bg: #fef6f9; --text: #4a3548; --text-sub: #9b8a99;
+  --text-light: #c4b5c2; --border: #f3e4ec; --border-light: #faf0f4;
+  --shadow: 0 2px 16px rgba(255,126,179,0.08); --radius: 16px; --radius-sm: 12px; --radius-xs: 8px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 14px; color: var(--text); background: var(--bg);
+  max-width: 430px; margin: 0 auto; min-height: 100vh;
+  box-shadow: 0 0 40px rgba(0,0,0,0.08);
+}
+.page-label { padding: 20px 16px 8px; font-size: 13px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 2px; }
+.page-label span { background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.login-preview { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 50%, #ff9a9e 100%); padding: 40px 24px; text-align: center; }
+.login-card { background: white; border-radius: 20px; padding: 36px 28px; width: 100%; max-width: 360px; margin: 0 auto; box-shadow: 0 8px 32px rgba(255,126,179,0.12); }
+.login-icon { font-size: 48px; margin-bottom: 12px; }
+.login-card h2 { margin-bottom: 24px; font-size: 20px; }
+.login-card input { width: 100%; padding: 11px 16px; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; outline: none; text-align: center; margin-bottom: 14px; }
+.btn-cute { display: inline-flex; align-items: center; justify-content: center; padding: 12px 28px; border: none; border-radius: 50px; font-size: 15px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; box-shadow: 0 4px 20px var(--primary-glow); }
+.btn-primary { width: 100%; }
+.admin-header { background: linear-gradient(135deg, #ffecd2, #fcb69f); padding: 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ffe0cc; }
+.admin-header h1 { font-size: 18px; }
+.btn-logout { padding: 6px 18px; border-radius: 20px; border: 2px solid rgba(74,53,72,0.15); background: rgba(255,255,255,0.6); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; }
+.admin-stats { display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto; background: white; border-bottom: 1px solid var(--border-light); }
+.stat-card { flex: 1; min-width: 64px; text-align: center; padding: 10px 6px; background: var(--bg); border-radius: var(--radius-sm); }
+.stat-card-num { font-size: 20px; font-weight: 800; }
+.stat-card-label { font-size: 10px; color: var(--text-sub); margin-top: 2px; }
+.admin-tabs { display: flex; background: white; border-bottom: 1px solid var(--border-light); overflow-x: auto; scrollbar-width: none; }
+.admin-tabs::-webkit-scrollbar { display: none; }
+.admin-tab { flex-shrink: 0; padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--text-sub); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
+.admin-tab.active { color: var(--primary-dark); border-bottom-color: var(--primary); }
+.admin-section { padding: 16px; }
+.admin-section h3 { margin-bottom: 16px; font-size: 16px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.required { color: var(--danger); }
+.optional { color: var(--text-light); font-weight: 400; font-size: 12px; }
+.input-cute { width: 100%; padding: 11px 16px; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: white; color: var(--text); outline: none; }
+.input-cute:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-glow); }
+.input-cute::placeholder { color: var(--text-light); }
+textarea.input-cute { min-height: 80px; resize: vertical; font-family: inherit; }
+select.input-cute { appearance: none; }
+.form-row { display: flex; gap: 12px; }
+.form-row .form-group { flex: 1; }
+.upload-area { border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 24px; text-align: center; background: var(--bg); cursor: pointer; }
+.upload-icon { font-size: 32px; margin-bottom: 6px; }
+.upload-text { font-size: 14px; font-weight: 600; }
+.admin-item { background: white; border-radius: var(--radius); padding: 14px; margin-bottom: 10px; box-shadow: var(--shadow); border: 1px solid var(--border-light); }
+.admin-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.admin-item-title { font-size: 14px; font-weight: 600; flex: 1; }
+.admin-item-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--text-sub); }
+.admin-item-actions { display: flex; gap: 8px; margin-top: 10px; }
+.badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.status-active { background: var(--success-light); color: var(--success); }
+.status-archived { background: #fff3e0; color: #e65100; }
+.st-active { background: #e3f2fd; color: #1976d2; }
+.st-submitted { background: var(--accent-light); color: #e65100; }
+.st-approved { background: var(--success-light); color: #2e7d32; }
+.st-rejected { background: var(--danger-light); color: #c62828; }
+.st-paid { background: #fce4ec; color: #ad1457; }
+.btn-sm { padding: 5px 14px; border-radius: 20px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; }
+.btn-edit { background: #e3f2fd; color: #1976d2; }
+.btn-archive { background: var(--accent-light); color: #e65100; }
+.btn-delete { background: var(--danger-light); color: #c62828; }
+.btn-review { background: var(--success-light); color: #2e7d32; }
+.btn-pay { background: #fce4ec; color: #ad1457; }
+.note-box { font-size: 12px; padding: 8px 12px; border-radius: var(--radius-xs); margin: 6px 0; background: var(--bg); color: var(--text-sub); word-break: break-all; }
+.note-review { background: var(--accent-light); color: #e65100; }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.filter-pills { display: flex; gap: 6px; }
+.filter-pill { padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 2px solid var(--border); background: white; color: var(--text-sub); cursor: pointer; }
+.filter-pill.active { background: var(--primary); color: white; border-color: var(--primary; }
+.preview-footer { text-align: center; padding: 40px 16px 60px; color: var(--text-light); font-size: 12px; }
+.qrcode-img { width: 100px; height: 100px; object-fit: contain; border-radius: 8px; border: 2px solid var(--border); margin-top: 4px; cursor: pointer; }
+.link-box { padding: 8px 12px; border-radius: var(--radius-xs); margin: 6px 0; background: #e8f5e9; font-size: 12px; }
+.link-box a { color: #2e7d32; word-break: break-all; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<!-- ==================== 登录页 ==================== -->
+<div class="page-label">— <span>🔐 登录页</span> —</div>
+<div class="login-preview">
+  <div class="login-card">
+    <div class="login-icon">🔐</div>
+    <h2>管理后台</h2>
+    <input type="password" placeholder="输入管理员密码" value="admin123">
+    <button class="btn-cute btn-primary">登 录</button>
+  </div>
+</div>
+
+<!-- ==================== 后台主页 ==================== -->
+<div class="page-label">— <span>📋 管理后台 / 发布素材</span> —</div>
+
+<div style="background:var(--bg);">
+  <div class="admin-header">
+    <h1>📋 管理后台</h1>
+    <button class="btn-logout">退出</button>
+  </div>
+  <div class="admin-stats">
+    <div class="stat-card" style="border-top:3px solid #e91e63;"><div class="stat-card-num" style="color:#e91e63;">12</div><div class="stat-card-label">活跃素材</div></div>
+    <div class="stat-card" style="border-top:3px solid #ff9800;"><div class="stat-card-num" style="color:#ff9800;">48</div><div class="stat-card-label">总接单</div></div>
+    <div class="stat-card" style="border-top:3px solid #9c27b0;"><div class="stat-card-num" style="color:#9c27b0;">23</div><div class="stat-card-label">用户数</div></div>
+    <div class="stat-card" style="border-top:3px solid #f44336;"><div class="stat-card-num" style="color:#f44336;">5</div><div class="stat-card-label">待审核</div></div>
+    <div class="stat-card" style="border-top:3px solid #4caf50;"><div class="stat-card-num" style="color:#4caf50;">¥180</div><div class="stat-card-label">已打款</div></div>
+  </div>
+  <div class="admin-tabs">
+    <div class="admin-tab active">📤 发布</div>
+    <div class="admin-tab">📦 素材</div>
+    <div class="admin-tab">📋 订单</div>
+    <div class="admin-tab">👥 用户</div>
+    <div class="admin-tab">📢 公告</div>
+  </div>
+  <div class="admin-section">
+    <h3>发布新素材</h3>
+    <div class="form-row">
+      <div class="form-group"><label>平台 *</label><select class="input-cute"><option>📕 小红书</option></select></div>
+      <div class="form-group"><label>类型 *</label><select class="input-cute"><option>📷 图文</option></select></div>
+    </div>
+    <div class="form-group"><label>标题 *</label><input type="text" class="input-cute" value="🌸 春日穿搭种草图文 | 温柔风连衣裙合集"></div>
+    <div class="form-group"><label>复制文案</label><textarea class="input-cute">春天就要穿得美美的~ 这几条连衣裙真的太温柔了！</textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label>赏金 (元) *</label><input type="number" class="input-cute" value="8"></div>
+      <div class="form-group"><label>最大接单 *</label><input type="number" class="input-cute" value="4"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>标签</label><input type="text" class="input-cute" value="穿搭,春装,连衣裙"></div>
+      <div class="form-group"><label>有效天数 <span class="optional">0=永久</span></label><input type="number" class="input-cute" value="7"></div>
+    </div>
+    <div class="form-group">
+      <label>素材图片</label>
+      <div class="upload-area"><div class="upload-icon">📷</div><p class="upload-text">点击上传图片</p></div>
+    </div>
+    <button class="btn-cute btn-primary">🚀 发布素材</button>
+  </div>
+</div>
+
+<!-- ==================== 订单管理（核心：收款码 + 帖子链接）==================== -->
+<div class="page-label">— <span>📋 订单管理（收款码 + 帖子链接）</span> —</div>
+
+<div style="padding:0 16px;">
+  <div class="section-header">
+    <h3>订单管理</h3>
+    <div class="filter-pills">
+      <button class="filter-pill active">全部</button>
+      <button class="filter-pill">待审核</button>
+      <button class="filter-pill">待打款</button>
+      <button class="filter-pill">已打款</button>
+    </div>
+  </div>
+
+  <!-- 待审核 - 有收款码 + 帖子链接 -->
+  <div class="admin-item">
+    <div class="admin-item-header">
+      <span class="admin-item-title">🌸 春日穿搭种草图文</span>
+      <span class="badge st-submitted">待审核</span>
+    </div>
+    <div class="admin-item-meta">
+      <span>👤 小仙女</span><span>💬 xiaonvhai01</span>
+      <span>💰¥8</span><span>📅 4/24</span>
+    </div>
+    <!-- 帖子链接 -->
+    <div class="link-box">🔗 <a href="#">https://www.xiaohongshu.com/explore/123456</a></div>
+    <div class="note-box">📝 已发布到小红书啦~</div>
+    <!-- 用户收款码 -->
+    <div style="margin-top:8px;padding:10px;background:var(--bg);border-radius:var(--radius-xs);">
+      <span style="font-size:12px;font-weight:600;color:var(--text-sub);">💳 用户收款码：</span>
+      <div style="margin-top:6px;">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ff9a9e'/%3E%3Cstop offset='100%25' stop-color='%23fecfef'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23g)' width='200' height='200' rx='12'/%3E%3Ctext x='50%25' y='35%25' font-size='36' text-anchor='middle'%3E💳%3C/text%3E%3Ctext x='50%25' y='58%25' font-size='16' text-anchor='middle' fill='%23fff' font-weight='bold'%3E微信收款码%3C/text%3E%3Ctext x='50%25' y='75%25' font-size='11' text-anchor='middle' fill='%23ffcdd2'%3E小仙女%3C/text%3E%3C/svg%3E" class="qrcode-img" alt="收款码">
+      </div>
+    </div>
+    <div class="admin-item-actions">
+      <button class="btn-sm btn-review">📋 审核</button>
+    </div>
+  </div>
+
+  <!-- 待打款 - 已通过，显示收款码方便扫码 -->
+  <div class="admin-item">
+    <div class="admin-item-header">
+      <span class="admin-item-title">✨ 护肤好物分享视频</span>
+      <span class="badge st-approved">已通过</span>
+    </div>
+    <div class="admin-item-meta">
+      <span>👤 甜甜圈</span><span>💬 tiantianquan</span>
+      <span>💰¥5</span><span>📅 4/23</span>
+    </div>
+    <div class="link-box">🔗 <a href="#">https://www.douyin.com/video/789012</a></div>
+    <!-- 收款码 - 方便直接扫码付款 -->
+    <div style="margin-top:8px;padding:10px;background:var(--bg);border-radius:var(--radius-xs);">
+      <span style="font-size:12px;font-weight:600;color:var(--text-sub);">💳 扫码付款：</span>
+      <div style="margin-top:6px;">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23a18cd1'/%3E%3Cstop offset='100%25' stop-color='%23fbc2eb'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23g)' width='200' height='200' rx='12'/%3E%3Ctext x='50%25' y='35%25' font-size='36' text-anchor='middle'%3E💳%3C/text%3E%3Ctext x='50%25' y='58%25' font-size='16' text-anchor='middle' fill='%23fff' font-weight='bold'%3E支付宝收款码%3C/text%3E%3Ctext x='50%25' y='75%25' font-size='11' text-anchor='middle' fill='%23e1bee7'%3E甜甜圈%3C/text%3E%3C/svg%3E" class="qrcode-img" alt="收款码">
+      </div>
+    </div>
+    <div class="admin-item-actions">
+      <button class="btn-sm btn-pay">💰 标记已打款</button>
+    </div>
+  </div>
+
+  <!-- 已打款 -->
+  <div class="admin-item">
+    <div class="admin-item-header">
+      <span class="admin-item-title">💄 美妆品牌评论互动</span>
+      <span class="badge st-paid">已打款</span>
+    </div>
+    <div class="admin-item-meta">
+      <span>👤 小仙女</span><span>💬 xiaonvhai01</span>
+      <span>💰¥3</span><span>📅 4/22</span>
+    </div>
+    <div class="link-box">🔗 <a href="#">https://www.xiaohongshu.com/explore/654321</a></div>
+  </div>
+
+  <!-- 已驳回 -->
+  <div class="admin-item">
+    <div class="admin-item-header">
+      <span class="admin-item-title">🍰 甜品店探店打卡</span>
+      <span class="badge st-rejected">已驳回</span>
+    </div>
+    <div class="admin-item-meta">
+      <span>👤 草莓酱</span><span>💬 caomeijiang</span>
+      <span>💰¥10</span><span>📅 4/21</span>
+    </div>
+    <div class="link-box">🔗 <a href="#">https://www.xiaohongshu.com/explore/999999</a></div>
+    <div class="note-box note-review">💬 链接无法打开，请检查后重新提交</div>
+  </div>
+</div>
+
+<!-- ==================== 用户管理（含收款码）==================== -->
+<div class="page-label">— <span>👥 用户管理（含收款码）</span> —</div>
+
+<div style="padding:0 16px;">
+  <h3 style="margin-bottom:16px;">用户管理</h3>
+
+  <div class="admin-item">
+    <div class="admin-item-header">
+      <span class="admin-item-title">👤 小仙女</span>
+      <span style="font-size:12px;color:#999;">4/20</span>
+    </div>
+    <div class="admin-item-meta">
+      <span>💬 xiaonvhai01</span>
+      <span style="color:var(--success);">💳 已上传收款码</span>
+      <span>📋接单 6</span><span>✅完成 4</span><span>💰¥24</span>
+    </div>
+    <div style="margin-top:8px;">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ff9a9e'/%3E%3Cstop offset='100%25' stop-color='%23fecfef'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23g)' width='200' height='200' rx='12'/%3E%3Ctext x='50%25' y='35%25' font-size='36' text-anchor='middle'%3E💳%3C/text%3E%3Ctext x='50%25' y='58%25' font-size='16' text-anchor='middle' fill='%23fff' font-weight='bold'%3E微信收款码%3C/text%3E%3Ctext x='50%25' y='75%25' font-size='11' text-anchor='middle' fill='%23ffcdd2'%3E小仙女%3C/text%3E%3C/svg%3E" style="width:80px;height:80px;object-fit:contain;border-radius:8px;border:2px solid var(--border);" alt="收款码">
+    </div>
+  </div>
+
+  <div class="admin-item">
+    <div class="admin-item-header">
+      <span class="admin-item-title">👤 甜甜圈</span>
+      <span style="font-size:12px;color:#999;">4/21</span>
+    </div>
+    <div class="admin-item-meta">
+      <span>💬 tiantianquan</span>
+      <span style="color:var(--success);">💳 已上传收款码</span>
+      <span>📋接单 3</span><span>✅完成 2</span><span>💰¥13</span>
+    </div>
+    <div style="margin-top:8px;">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23a18cd1'/%3E%3Cstop offset='100%25' stop-color='%23fbc2eb'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23g)' width='200' height='200' rx='12'/%3E%3Ctext x='50%25' y='35%25' font-size='36' text-anchor='middle'%3E💳%3C/text%3E%3Ctext x='50%25' y='58%25' font-size='16' text-anchor='middle' fill='%23fff' font-weight='bold'%3E支付宝收款码%3C/text%3E%3Ctext x='50%25' y='75%25' font-size='11' text-anchor='middle' fill='%23e1bee7'%3E甜甜圈%3C/text%3E%3C/svg%3E" style="width:80px;height:80px;object-fit:contain;border-radius:8px;border:2px solid var(--border);" alt="收款码">
+    </div>
+  </div>
+
+  <div class="admin-item">
+    <div class="admin-item-header">
+      <span class="admin-item-title">👤 草莓酱</span>
+      <span style="font-size:12px;color:#999;">4/22</span>
+    </div>
+    <div class="admin-item-meta">
+      <span>💬 caomeijiang</span>
+      <span style="color:var(--danger);">💳 未上传收款码</span>
+      <span>📋接单 2</span><span>✅完成 0</span><span>💰¥0</span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 审核弹窗 ==================== -->
+<div class="page-label">— <span>📋 审核弹窗</span> —</div>
+
+<div style="background:rgba(74,53,72,0.3);padding:20px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);">
+  <div style="background:white;border-radius:20px;padding:28px 24px;max-width:360px;margin:0 auto;box-shadow:0 8px 32px rgba(255,126,179,0.12);">
+    <h3 style="font-size:17px;margin-bottom:16px;">📋 审核订单</h3>
+    <div style="background:var(--bg);border-radius:var(--radius-sm);padding:14px;margin-bottom:12px;">
+      <div style="font-weight:700;margin-bottom:4px;">🌸 春日穿搭种草图文</div>
+      <div style="font-size:13px;color:var(--text-sub);margin-bottom:8px;">接单人：小仙女 ｜ 赏金：¥8</div>
+      <div class="link-box" style="margin:0;">🔗 <a href="#" style="color:#2e7d32;">https://www.xiaohongshu.com/explore/123456</a></div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <span style="font-size:12px;font-weight:600;color:var(--text-sub);">💳 用户收款码：</span>
+      <div style="margin-top:6px;text-align:center;">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ff9a9e'/%3E%3Cstop offset='100%25' stop-color='%23fecfef'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23g)' width='200' height='200' rx='12'/%3E%3Ctext x='50%25' y='35%25' font-size='36' text-anchor='middle'%3E💳%3C/text%3E%3Ctext x='50%25' y='58%25' font-size='14' text-anchor='middle' fill='%23fff' font-weight='bold'%3E微信收款码%3C/text%3E%3Ctext x='50%25' y='75%25' font-size='11' text-anchor='middle' fill='%23ffcdd2'%3E小仙女%3C/text%3E%3C/svg%3E" style="width:120px;height:120px;object-fit:contain;border-radius:8px;border:2px solid var(--border);">
+      </div>
+    </div>
+    <div class="form-group"><label>审核备注</label><input type="text" class="input-cute" placeholder="驳回时建议写明原因~"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button style="flex:1;padding:10px;border-radius:50px;border:none;font-size:14px;font-weight:600;background:var(--border-light);color:var(--text-sub);cursor:pointer;">取消</button>
+      <button style="flex:1;padding:10px;border-radius:50px;border:none;font-size:14px;font-weight:600;background:var(--danger);color:white;cursor:pointer;">驳回</button>
+      <button style="flex:1;padding:10px;border-radius:50px;border:none;font-size:14px;font-weight:600;background:var(--success);color:white;cursor:pointer;">通过</button>
+    </div>
+  </div>
+</div>
+
+<div class="preview-footer">
+  🔐 素材兼职平台 v2.1 — 管理端预览<br>
+  订单含用户收款码 + 帖子链接，审核通过后扫码付款
+</div>
+
+</body>
+</html>

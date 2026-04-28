@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🌸 素材兼职平台 - 用户端预览</title>
+<style>
+:root {
+  --primary: #ff7eb3; --primary-dark: #e56a9a; --primary-light: #fff0f5;
+  --primary-glow: rgba(255,126,179,0.25); --accent: #ff9a76; --accent-light: #fff4ef;
+  --success: #7ec8a0; --success-light: #f0faf4; --danger: #f06292; --danger-light: #fce4ec;
+  --warning-dark: #f5a623; --bg: #fef6f9; --text: #4a3548; --text-sub: #9b8a99;
+  --text-light: #c4b5c2; --border: #f3e4ec; --border-light: #faf0f4;
+  --shadow: 0 2px 16px rgba(255,126,179,0.08); --radius: 16px; --radius-sm: 12px; --radius-xs: 8px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 14px; color: var(--text); background: var(--bg);
+  max-width: 430px; margin: 0 auto; min-height: 100vh;
+  box-shadow: 0 0 40px rgba(0,0,0,0.08);
+}
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fdfcfb 100%);
+  box-shadow: 0 2px 20px rgba(255,154,158,0.2);
+}
+.header-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 6px; }
+.header-title {
+  font-size: 19px; font-weight: 800;
+  background: linear-gradient(135deg, #e56a9a, #ff6b8a);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.user-badge { padding: 4px 12px; border-radius: 20px; background: rgba(255,255,255,0.7); font-size: 12px; font-weight: 600; color: var(--text); }
+.btn-orders-link { padding: 5px 14px; border-radius: 20px; background: rgba(255,255,255,0.8); color: var(--primary-dark); font-size: 12px; font-weight: 600; text-decoration: none; }
+.header-stats { display: flex; gap: 8px; padding: 8px 16px 12px; }
+.stat-bubble { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border-radius: var(--radius-sm); background: rgba(255,255,255,0.6); }
+.stat-bubble .stat-num { font-size: 17px; font-weight: 800; line-height: 1.2; }
+.stat-bubble .stat-label { font-size: 10px; color: var(--text-sub); margin-top: 2px; }
+.stat-xhs .stat-num { color: #fe2c55; }
+.stat-dy .stat-num { color: #161823; }
+.stat-reward .stat-num { color: var(--warning-dark); }
+.announcement-bar { background: rgba(255,255,255,0.5); padding: 7px 16px; font-size: 12px; display: flex; align-items: center; gap: 6px; color: var(--text-sub); overflow: hidden; }
+.marquee { white-space: nowrap; animation: marquee 30s linear infinite; }
+@keyframes marquee { 0%{transform:translateX(100%)} 100%{transform:translateX(-100%)} }
+.search-bar { padding: 10px 16px; background: white; border-bottom: 1px solid var(--border-light); }
+.search-input-wrap { display: flex; align-items: center; background: var(--bg); border-radius: 50px; padding: 0 14px; border: 2px solid transparent; }
+.search-input-wrap:focus-within { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-glow); background: white; }
+.search-icon { font-size: 14px; margin-right: 8px; }
+.search-input-wrap input { flex: 1; padding: 10px 0; border: none; background: none; font-size: 13px; outline: none; color: var(--text); }
+.search-input-wrap input::placeholder { color: var(--text-light); }
+.tab-nav { display: flex; padding: 8px 16px; gap: 8px; background: white; border-bottom: 1px solid var(--border-light); position: sticky; top: 0; z-index: 99; }
+.tab-pill { flex: 1; text-align: center; padding: 10px 0; border-radius: 50px; font-size: 13px; font-weight: 600; color: var(--text-sub); cursor: pointer; background: var(--bg); }
+.tab-pill.active { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; box-shadow: 0 4px 12px var(--primary-glow); }
+.sub-tabs { display: flex; padding: 10px 16px; gap: 8px; overflow-x: auto; background: white; scrollbar-width: none; }
+.sub-tabs::-webkit-scrollbar { display: none; }
+.sub-pill { flex-shrink: 0; padding: 7px 18px; border-radius: 50px; font-size: 13px; font-weight: 500; border: 2px solid var(--border); background: white; color: var(--text-sub); cursor: pointer; white-space: nowrap; }
+.sub-pill.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 2px 8px var(--primary-glow); }
+.material-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+.material-card { background: white; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--border-light); }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 14px 14px 8px; }
+.card-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { display: inline-flex; align-items: center; gap: 3px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.tag-platform { color: white; }
+.tag-platform.xhs { background: #fe2c55; }
+.tag-platform.dy { background: #161823; }
+.tag-type { background: var(--border-light); color: var(--text-sub); }
+.tag-slots { background: var(--success-light); color: var(--success); }
+.tag-full { background: var(--danger-light); color: var(--danger); }
+.tag-reward { background: #fff3e0; color: var(--warning-dark); font-weight: 700; }
+.card-title { font-size: 15px; font-weight: 600; padding: 0 14px 10px; line-height: 1.4; }
+.card-images { display: flex; gap: 4px; padding: 0 14px; overflow-x: auto; scrollbar-width: none; }
+.card-images::-webkit-scrollbar { display: none; }
+.card-images img { flex-shrink: 0; width: 88px; height: 88px; object-fit: cover; border-radius: var(--radius-xs); background: var(--bg); }
+.card-progress { margin: 8px 14px 0; height: 4px; background: var(--border-light); border-radius: 2px; overflow: hidden; }
+.card-progress-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--primary), var(--accent)); }
+.card-footer { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px 14px; }
+.card-reward { font-size: 22px; font-weight: 800; background: linear-gradient(135deg, #ff6b8a, #ff9a76); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.card-reward span { font-size: 12px; font-weight: 500; -webkit-text-fill-color: var(--text-sub); }
+.btn-accept-card { padding: 8px 24px; border-radius: 50px; border: none; font-size: 13px; font-weight: 700; color: white; background: linear-gradient(135deg, var(--primary), var(--accent)); cursor: pointer; box-shadow: 0 2px 10px var(--primary-glow); }
+.btn-accept-card.disabled { background: var(--border); color: var(--text-light); box-shadow: none; }
+
+/* Welcome Modal */
+.modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(74,53,72,0.3); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.modal { background: white; border-radius: 20px; width: 100%; max-width: 380px; padding: 28px 24px; box-shadow: 0 8px 32px rgba(255,126,179,0.12); text-align: center; }
+.welcome-icon { font-size: 48px; margin-bottom: 8px; }
+.welcome-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.welcome-desc { font-size: 13px; color: var(--text-sub); margin-bottom: 20px; }
+.form-group { margin-bottom: 14px; text-align: left; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.required { color: var(--danger); }
+.optional { color: var(--text-light); font-weight: 400; font-size: 12px; }
+.input-cute { width: 100%; padding: 11px 16px; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: white; color: var(--text); outline: none; }
+.input-cute:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-glow); }
+.input-cute::placeholder { color: var(--text-light); }
+.upload-area { border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 20px; text-align: center; background: var(--bg); cursor: pointer; }
+.upload-icon { font-size: 32px; margin-bottom: 6px; }
+.upload-text { font-size: 14px; font-weight: 600; }
+.upload-hint { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+.btn-cute { display: inline-flex; align-items: center; justify-content: center; padding: 12px 28px; border: none; border-radius: 50px; font-size: 15px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; box-shadow: 0 4px 20px var(--primary-glow); width: 100%; }
+
+/* Detail */
+.detail-preview { background: white; margin: 12px 16px; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--border-light); }
+.detail-nav { display: flex; align-items: center; gap: 4px; padding: 12px 16px; font-size: 14px; color: var(--primary-dark); font-weight: 600; border-bottom: 1px solid var(--border-light); }
+.detail-tags-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px; }
+.detail-imgs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.detail-imgs img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+.detail-body { padding: 16px; }
+.detail-body h3 { font-size: 16px; margin-bottom: 14px; line-height: 1.5; }
+.copy-card { background: var(--primary-light); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 16px; border: 1px solid #ffe0ed; }
+.copy-text { font-size: 13px; line-height: 1.7; max-height: 100px; overflow: hidden; }
+.btn-copy { width: 100%; margin-top: 10px; padding: 11px; border: none; border-radius: 50px; background: linear-gradient(135deg, var(--primary), #ff6b8a); color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
+.reward-card { display: flex; align-items: center; gap: 12px; padding: 16px; background: linear-gradient(135deg, #fff0f5, #ffe8ec); border-radius: var(--radius-sm); margin-bottom: 12px; border: 1px solid #ffd6e4; }
+.reward-emoji { font-size: 32px; }
+.reward-amount { font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #ff6b8a, #ff9a76); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.reward-unit { font-size: 13px; color: var(--text-sub); }
+.slots-card { background: var(--bg); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 16px; }
+.slots-header { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-sub); margin-bottom: 8px; }
+.slots-bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.slots-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--primary), var(--accent)); }
+.guide-card { background: var(--accent-light); border: 1px solid #ffe0cc; border-radius: var(--radius-sm); padding: 16px; margin-bottom: 20px; }
+.guide-title { font-weight: 700; color: #e65100; margin-bottom: 10px; font-size: 14px; }
+.guide-steps { display: flex; flex-direction: column; gap: 8px; }
+.guide-step { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.step-dot { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #ff7043); color: white; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.btn-accept-main { width: 100%; padding: 15px; border: none; border-radius: 50px; background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; font-size: 16px; font-weight: 700; box-shadow: 0 6px 24px var(--primary-glow); cursor: pointer; }
+
+/* Submit Link Section */
+.submit-section { margin-top: 24px; }
+.section-divider { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; font-size: 15px; font-weight: 700; }
+.section-divider::before, .section-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.submit-hint { font-size: 13px; color: var(--text-sub); margin-bottom: 14px; line-height: 1.6; }
+.btn-submit-review { width: 100%; margin-top: 14px; padding: 13px; border: none; border-radius: 50px; background: linear-gradient(135deg, #ff9a76, #ff6b8a); color: white; font-size: 15px; font-weight: 700; box-shadow: 0 4px 16px rgba(255,154,118,0.3); cursor: pointer; }
+
+/* Status */
+.status-card-inline { padding: 28px 20px; background: white; border-radius: var(--radius); text-align: center; border: 2px solid var(--border-light); box-shadow: var(--shadow); }
+.status-emoji { font-size: 48px; margin-bottom: 10px; }
+.status-label { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+.status-desc { font-size: 13px; color: var(--text-sub); line-height: 1.6; }
+
+/* Orders */
+.orders-preview { background: white; margin: 12px 16px; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--border-light); }
+.orders-header { padding: 16px; border-bottom: 1px solid var(--border-light); }
+.orders-header h2 { font-size: 18px; font-weight: 700; }
+.orders-summary { display: flex; gap: 10px; padding: 12px 16px; }
+.summary-card { flex: 1; text-align: center; padding: 14px 8px; background: var(--bg); border-radius: var(--radius-sm); }
+.summary-card .summary-num { font-size: 20px; font-weight: 800; }
+.summary-card .summary-label { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+.summary-earned .summary-num { color: var(--success) !important; }
+.summary-pending .summary-num { color: var(--warning-dark) !important; }
+.order-tabs { display: flex; gap: 6px; padding: 8px 16px; overflow-x: auto; scrollbar-width: none; }
+.order-tabs::-webkit-scrollbar { display: none; }
+.order-list { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+.order-card { display: flex; gap: 12px; padding: 14px; background: var(--bg); border-radius: var(--radius); border: 1px solid var(--border-light); }
+.order-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: var(--radius-xs); flex-shrink: 0; }
+.order-card-body { flex: 1; min-width: 0; }
+.order-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.order-meta { display: flex; gap: 10px; font-size: 12px; color: var(--text-sub); margin-bottom: 6px; }
+.order-reward { color: var(--warning-dark); font-weight: 700; }
+.order-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.st-active { background: #e3f2fd; color: #1976d2; }
+.st-submitted { background: var(--accent-light); color: #e65100; }
+.st-approved { background: var(--success-light); color: #2e7d32; }
+.st-paid { background: #fce4ec; color: #ad1457; }
+
+.page-label { padding: 20px 16px 8px; font-size: 13px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 2px; }
+.page-label span { background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.preview-footer { text-align: center; padding: 40px 16px 60px; color: var(--text-light); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<!-- ==================== 注册弹窗 ==================== -->
+<div class="page-label">— <span>👋 注册弹窗（含收款码上传）</span> —</div>
+
+<div class="modal-overlay" style="position:relative;background:var(--bg);backdrop-filter:none;padding:20px;">
+  <div class="modal">
+    <div class="welcome-icon">🌸</div>
+    <h3 class="welcome-title">Hi~ 欢迎来到素材小站</h3>
+    <p class="welcome-desc">设置昵称就可以开始接单赚零花钱啦</p>
+    <div class="form-group">
+      <label>你的昵称 <span class="required">*</span></label>
+      <input type="text" class="input-cute" placeholder="取个好听的名字吧~" value="小仙女">
+    </div>
+    <div class="form-group">
+      <label>微信号 <span class="optional">选填</span></label>
+      <input type="text" class="input-cute" placeholder="方便联系你发赏金哦~">
+    </div>
+    <div class="form-group">
+      <label>收款码 <span class="required">*</span></label>
+      <p style="font-size:12px;color:var(--text-sub);margin-bottom:8px;">上传你的微信/支付宝收款码，审核通过后管理员扫码付款</p>
+      <div class="upload-area" style="padding:16px;">
+        <div style="display:flex;align-items:center;gap:16px;justify-content:center;">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ff9a9e'/%3E%3Cstop offset='100%25' stop-color='%23fecfef'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23g)' width='120' height='120' rx='8'/%3E%3Ctext x='50%25' y='40%25' font-size='28' text-anchor='middle'%3E💳%3C/text%3E%3Ctext x='50%25' y='65%25' font-size='10' text-anchor='middle' fill='%23fff'%3E收款码%3C/text%3E%3C/svg%3E" alt="收款码" style="width:100px;height:100px;object-fit:contain;border-radius:8px;border:2px solid var(--border);">
+          <div style="text-align:left;">
+            <p style="font-size:13px;font-weight:600;color:var(--primary-dark);">✅ 已上传收款码</p>
+            <p style="font-size:12px;color:var(--text-light);margin-top:4px;">点击可更换</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="btn-cute">💕 开始接单</button>
+  </div>
+</div>
+
+<!-- ==================== 首页 ==================== -->
+<div class="page-label">— <span>📱 首页 / 接单列表</span> —</div>
+
+<div class="header">
+  <div class="header-top">
+    <div class="header-title">🌸 素材小站</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="user-badge">👤 小仙女</span>
+      <a class="btn-orders-link">📦 我的</a>
+    </div>
+  </div>
+  <div class="header-stats">
+    <div class="stat-bubble"><span class="stat-num">12</span><span class="stat-label">任务</span></div>
+    <div class="stat-bubble stat-xhs"><span class="stat-num">8</span><span class="stat-label">小红书</span></div>
+    <div class="stat-bubble stat-dy"><span class="stat-num">4</span><span class="stat-label">抖音</span></div>
+    <div class="stat-bubble stat-reward"><span class="stat-num">¥360</span><span class="stat-label">赏金</span></div>
+  </div>
+  <div class="announcement-bar">
+    <span>🔔</span>
+    <span class="marquee">📌 新手福利：首次接单额外奖励2元　｜　🌸 春季穿搭专场已上线　｜　⏰ 每日10点上新</span>
+  </div>
+</div>
+
+<div class="search-bar">
+  <div class="search-input-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" placeholder="搜索你喜欢的素材~">
+  </div>
+</div>
+
+<div class="tab-nav">
+  <div class="tab-pill active">✨ 全部</div>
+  <div class="tab-pill">📕 小红书</div>
+  <div class="tab-pill">🎵 抖音</div>
+</div>
+
+<div class="sub-tabs">
+  <div class="sub-pill active">全部</div>
+  <div class="sub-pill">📷 图文</div>
+  <div class="sub-pill">🎬 视频</div>
+  <div class="sub-pill">💬 评论</div>
+</div>
+
+<div class="material-list">
+  <div class="material-card">
+    <div class="card-header">
+      <div class="card-tags">
+        <span class="tag tag-platform xhs">📕 小红书</span>
+        <span class="tag tag-type">📷 图文</span>
+        <span class="tag tag-slots">剩2单</span>
+      </div>
+    </div>
+    <div class="card-title">🌸 春日穿搭种草图文 | 温柔风连衣裙合集</div>
+    <div class="card-images">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23ffcdd2' width='200' height='200'/%3E%3Ctext x='50%25' y='50%25' font-size='40' text-anchor='middle' dy='.35em'%3E👗%3C/text%3E%3C/svg%3E" alt="">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23f8bbd0' width='200' height='200'/%3E%3Ctext x='50%25' y='50%25' font-size='40' text-anchor='middle' dy='.35em'%3E🌸%3C/text%3E%3C/svg%3E" alt="">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23e1bee7' width='200' height='200'/%3E%3Ctext x='50%25' y='50%25' font-size='40' text-anchor='middle' dy='.35em'%3E🎀%3C/text%3E%3C/svg%3E" alt="">
+    </div>
+    <div class="card-progress"><div class="card-progress-fill" style="width:66%"></div></div>
+    <div class="card-footer">
+      <div class="card-reward">¥8 <span>/单</span></div>
+      <button class="btn-accept-card">接单</button>
+    </div>
+  </div>
+
+  <div class="material-card">
+    <div class="card-header">
+      <div class="card-tags">
+        <span class="tag tag-platform dy">🎵 抖音</span>
+        <span class="tag tag-type">🎬 视频</span>
+        <span class="tag tag-slots">剩5单</span>
+      </div>
+    </div>
+    <div class="card-title">✨ 护肤好物分享视频 | 平价精华测评</div>
+    <div class="card-images">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23b2dfdb' width='200' height='200'/%3E%3Ctext x='50%25' y='50%25' font-size='40' text-anchor='middle' dy='.35em'%3E🧴%3C/text%3E%3C/svg%3E" alt="">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23c8e6c9' width='200' height='200'/%3E%3Ctext x='50%25' y='50%25' font-size='40' text-anchor='middle' dy='.35em'%3E✨%3C/text%3E%3C/svg%3E" alt="">
+    </div>
+    <div class="card-progress"><div class="card-progress-fill" style="width:33%"></div></div>
+    <div class="card-footer">
+      <div class="card-reward">¥5 <span>/单</span></div>
+      <button class="btn-accept-card">接单</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 详情页 + 提交链接 ==================== -->
+<div class="page-label">— <span>📄 详情页 / 提交链接</span> —</div>
+
+<div class="detail-preview">
+  <div class="detail-nav"><span style="font-size:16px;">←</span> 返回</div>
+  <div class="detail-tags-row">
+    <span class="tag tag-platform xhs">📕 小红书</span>
+    <span class="tag tag-type">📷 图文</span>
+    <span class="tag tag-slots">剩2单</span>
+    <span class="tag tag-reward">¥8/单</span>
+  </div>
+  <div class="detail-imgs">
+    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ff9a9e'/%3E%3Cstop offset='100%25' stop-color='%23fecfef'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23g)' width='300' height='300'/%3E%3Ctext x='50%25' y='45%25' font-size='48' text-anchor='middle'%3E👗%3C/text%3E%3Ctext x='50%25' y='65%25' font-size='14' text-anchor='middle' fill='%23fff'%3E春日穿搭%3C/text%3E%3C/svg%3E" alt="">
+    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23a18cd1'/%3E%3Cstop offset='100%25' stop-color='%23fbc2eb'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23g)' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='48' text-anchor='middle'%3E🌸%3C/text%3E%3C/svg%3E" alt="">
+    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ffecd2'/%3E%3Cstop offset='100%25' stop-color='%23fcb69f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23g)' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='48' text-anchor='middle'%3E🎀%3C/text%3E%3C/svg%3E" alt="">
+  </div>
+  <div class="detail-body">
+    <h3>🌸 春日穿搭种草图文 | 温柔风连衣裙合集</h3>
+    <div class="copy-card">
+      <div class="copy-text">春天就要穿得美美的~ 这几条连衣裙真的太温柔了！面料舒服又显瘦，约会通勤都能穿 💕 #春日穿搭 #连衣裙 #温柔风</div>
+      <button class="btn-copy">📋 一键复制文案</button>
+    </div>
+    <div class="reward-card">
+      <div class="reward-emoji">💰</div>
+      <div><span class="reward-amount">¥8</span><span class="reward-unit"> / 单</span></div>
+    </div>
+    <div class="slots-card">
+      <div class="slots-header"><span>📊 接单进度</span><span style="font-weight:600;">2/4 已接单</span></div>
+      <div class="slots-bar"><div class="slots-bar-fill" style="width:50%"></div></div>
+    </div>
+    <div class="guide-card">
+      <div class="guide-title">💡 操作步骤</div>
+      <div class="guide-steps">
+        <div class="guide-step"><span class="step-dot">1</span>复制文案，保存图片到相册</div>
+        <div class="guide-step"><span class="step-dot">2</span>打开对应平台发布内容</div>
+        <div class="guide-step"><span class="step-dot">3</span>发布成功后，粘贴帖子链接提交审核</div>
+        <div class="guide-step"><span class="step-dot">4</span>审核通过，管理员扫码给你发赏金~</div>
+      </div>
+    </div>
+
+    <!-- 提交链接区域 -->
+    <div class="submit-section" style="display:block;margin-top:0;">
+      <div class="section-divider"><span>🔗 提交链接</span></div>
+      <p class="submit-hint">把发布好的帖子链接粘贴过来，管理员审核后就给你发赏金哦~</p>
+      <div class="form-group" style="margin-top:0;">
+        <input type="url" class="input-cute" placeholder="粘贴帖子链接（https://...）" value="https://www.xiaohongshu.com/explore/123456">
+      </div>
+      <div class="form-group">
+        <input type="text" class="input-cute" placeholder="备注（选填）">
+      </div>
+      <button class="btn-submit-review">📤 提交审核</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 审核状态 ==================== -->
+<div class="page-label">— <span>⏳ 审核状态卡片</span> —</div>
+
+<div style="display:flex;gap:10px;margin:0 16px;">
+  <div class="status-card-inline" style="flex:1;margin:0;">
+    <div class="status-emoji">⏳</div>
+    <div class="status-label" style="color:#ff9800;">审核中</div>
+    <div class="status-desc">链接已提交，耐心等一下哦~</div>
+  </div>
+  <div class="status-card-inline" style="flex:1;margin:0;">
+    <div class="status-emoji">🎉</div>
+    <div class="status-label" style="color:#4caf50;">已通过</div>
+    <div class="status-desc">审核通过啦！管理员会扫码付款~</div>
+  </div>
+</div>
+<div style="display:flex;gap:10px;margin:10px 16px;">
+  <div class="status-card-inline" style="flex:1;margin:0;">
+    <div class="status-emoji">😿</div>
+    <div class="status-label" style="color:#f44336;">被驳回</div>
+    <div class="status-desc">链接无效，修改后重新提交</div>
+  </div>
+  <div class="status-card-inline" style="flex:1;margin:0;">
+    <div class="status-emoji">💰</div>
+    <div class="status-label" style="color:#e91e63;">已到账</div>
+    <div class="status-desc">¥8 已经到你口袋啦~</div>
+  </div>
+</div>
+
+<!-- ==================== 我的订单 ==================== -->
+<div class="page-label">— <span>📦 我的订单</span> —</div>
+
+<div class="orders-preview">
+  <div class="orders-header"><h2>📦 我的接单</h2></div>
+  <div class="orders-summary">
+    <div class="summary-card"><div class="summary-num">6</div><div class="summary-label">总接单</div></div>
+    <div class="summary-card summary-earned"><div class="summary-num">¥24</div><div class="summary-label">已到账</div></div>
+    <div class="summary-card summary-pending"><div class="summary-num">¥16</div><div class="summary-label">待发放</div></div>
+  </div>
+  <div class="order-tabs">
+    <div class="sub-pill active">全部</div>
+    <div class="sub-pill">进行中</div>
+    <div class="sub-pill">审核中</div>
+    <div class="sub-pill">已通过</div>
+    <div class="sub-pill">已到账</div>
+  </div>
+  <div class="order-list">
+    <div class="order-card">
+      <img class="order-thumb" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23ffcdd2' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' font-size='28' text-anchor='middle' dy='.35em'%3E👗%3C/text%3E%3C/svg%3E" alt="">
+      <div class="order-card-body">
+        <div class="order-title">春日穿搭种草图文</div>
+        <div class="order-meta"><span class="order-reward">¥8</span><span>4/24</span></div>
+        <span class="order-badge st-paid">💰 已到账</span>
+      </div>
+    </div>
+    <div class="order-card">
+      <img class="order-thumb" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23b2dfdb' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' font-size='28' text-anchor='middle' dy='.35em'%3E🧴%3C/text%3E%3C/svg%3E" alt="">
+      <div class="order-card-body">
+        <div class="order-title">护肤好物分享视频</div>
+        <div class="order-meta"><span class="order-reward">¥5</span><span>4/23</span></div>
+        <span class="order-badge st-approved">🎉 已通过</span>
+      </div>
+    </div>
+    <div class="order-card">
+      <img class="order-thumb" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23e1bee7' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' font-size='28' text-anchor='middle' dy='.35em'%3E💄%3C/text%3E%3C/svg%3E" alt="">
+      <div class="order-card-body">
+        <div class="order-title">美妆品牌评论互动</div>
+        <div class="order-meta"><span class="order-reward">¥3</span><span>4/22</span></div>
+        <span class="order-badge st-submitted">📤 审核中</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="preview-footer">
+  🌸 素材兼职平台 v2.1 — 用户端预览<br>
+  注册上传收款码 ｜ 提交帖子链接
+</div>
+
+</body>
+</html>
