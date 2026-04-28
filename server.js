@@ -75,19 +75,8 @@ function generateToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
-// --- Middleware ---
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Request logging for debugging
-app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ${req.method} ${req.url}`);
-  next();
-});
-
-// FIX: /zhongcao reverse proxy - MUST be before static and other routes
-// This handles the proxy without modifying req.path (which breaks Express routing)
+// /zhongcao reverse proxy - MUST be before express.json() to prevent body stream from being consumed
+// Express body-parser consumes the request stream, making req.pipe() unable to forward POST data
 const http = require('http');
 app.use('/zhongcao', (req, res) => {
   const target = req.originalUrl.replace(/^\/zhongcao/, '') || '/';
@@ -107,6 +96,17 @@ app.use('/zhongcao', (req, res) => {
     res.status(502).json({ success: false, message: 'copy-board 服务不可用' });
   });
   req.pipe(proxyReq);
+});
+
+// --- Middleware ---
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Request logging for debugging
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.url}`);
+  next();
 });
 
 // Static files
