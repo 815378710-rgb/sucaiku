@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -17,38 +18,50 @@ const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
+let _dbCache = null;
+
 function loadDB() {
+  if (_dbCache) return _dbCache;
   if (!fs.existsSync(DB_FILE)) {
     const defaultDB = {
       materials: [],
       announcements: [],
       orders: [],
       users: [],
+      notifications: [],
       adminPassword: hashPassword('congshaoyu102@'),
       adminTokens: [],
       stats: { totalOrders: 0, totalUsers: 0, totalPaid: 0 }
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(defaultDB, null, 2));
-    return defaultDB;
+    _dbCache = defaultDB;
+    return _dbCache;
   }
   try {
-    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    _dbCache = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    return _dbCache;
   } catch (e) {
     console.error('⚠️ DB文件损坏，已备份并重建:', e.message);
     const backup = DB_FILE + '.bak.' + Date.now();
     fs.copyFileSync(DB_FILE, backup);
     const defaultDB = {
-      materials: [], announcements: [], orders: [], users: [],
+      materials: [], announcements: [], orders: [], users: [], notifications: [],
       adminPassword: hashPassword('congshaoyu102@'), adminTokens: [],
       stats: { totalOrders: 0, totalUsers: 0, totalPaid: 0 }
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(defaultDB, null, 2));
-    return defaultDB;
+    _dbCache = defaultDB;
+    return _dbCache;
   }
 }
 
+function reloadDB() {
+  _dbCache = null;
+  return loadDB();
+}
+
 function saveDB(db) {
-  // Atomic write: write to temp file then rename to prevent corruption
+  _dbCache = db;
   const tempFile = DB_FILE + '.tmp';
   fs.writeFileSync(tempFile, JSON.stringify(db, null, 2));
   fs.renameSync(tempFile, DB_FILE);
@@ -106,6 +119,7 @@ app.use('/zhongcao', (req, res) => {
 });
 
 // --- Middleware ---
+app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -116,8 +130,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Static files
-app.use(express.static('public'));
+// Static files with 24-hour cache
+app.use(express.static('public', { maxAge: '1d' }));
 
 // Admin auth middleware
 function adminAuth(req, res, next) {
@@ -507,12 +521,34 @@ app.post('/api/admin/orders/:id/review', adminAuth, (req, res) => {
       user.completedOrders += 1;
       user.totalEarned += order.reward;
     }
+    // Create notification
+    if (!db.notifications) db.notifications = [];
+    db.notifications.push({
+      id: uuidv4(),
+      userId: order.userId,
+      orderId: order.id,
+      type: 'approved',
+      message: '你提交的「' + order.materialTitle + '」审核通过了！赏金 ¥' + order.reward,
+      createdAt: new Date().toISOString(),
+      read: false
+    });
   } else if (effectiveAction === 'reject') {
     order.status = 'rejected';
     order.reviewedAt = new Date().toISOString();
     order.reviewNote = note || '不符合要求，请修改后重新提交';
     const mat = db.materials.find(m => m.id === order.materialId);
     if (mat && mat.currentOrders > 0) mat.currentOrders -= 1;
+    // Create notification
+    if (!db.notifications) db.notifications = [];
+    db.notifications.push({
+      id: uuidv4(),
+      userId: order.userId,
+      orderId: order.id,
+      type: 'rejected',
+      message: '你提交的「' + order.materialTitle + '」审核未通过，原因：' + (note || '不符合要求'),
+      createdAt: new Date().toISOString(),
+      read: false
+    });
   } else {
     return res.status(400).json({ success: false, message: '无效的操作类型' });
   }
@@ -774,6 +810,41 @@ app.delete('/api/admin/announcements/:id', adminAuth, (req, res) => {
   res.json({ success: true, message: '已删除' });
 });
 
+// ============================================
+// API: Notifications
+// ============================================
+
+app.get('/api/notifications', (req, res) => {
+  const db = loadDB();
+  const { userId } = req.query;
+  if (!userId) return res.status(400).json({ success: false, message: '缺少用户ID' });
+  const notifications = (db.notifications || [])
+    .filter(n => n.userId === userId)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const unreadCount = notifications.filter(n => !n.read).length;
+  res.json({ success: true, data: { notifications, unreadCount } });
+});
+
+app.post('/api/notifications/:id/read', (req, res) => {
+  const db = loadDB();
+  const notif = (db.notifications || []).find(n => n.id === req.params.id);
+  if (!notif) return res.status(404).json({ success: false, message: '通知不存在' });
+  notif.read = true;
+  saveDB(db);
+  res.json({ success: true });
+});
+
+app.post('/api/notifications/read-all', (req, res) => {
+  const db = loadDB();
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ success: false, message: '缺少用户ID' });
+  (db.notifications || []).forEach(n => {
+    if (n.userId === userId) n.read = true;
+  });
+  saveDB(db);
+  res.json({ success: true });
+});
+
 // Stats
 app.get('/api/stats', (req, res) => {
   const db = loadDB();
@@ -824,5 +895,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🎀 素材兼职平台 v3.1 已启动: http://localhost:${PORT}`);
+  console.log(`🎀 素材兼职平台 v3.2.0 已启动: http://localhost:${PORT}`);
 });

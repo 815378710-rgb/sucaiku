@@ -16,6 +16,11 @@
       <h2>📦 我的接单</h2>
     </div>
 
+    <!-- Notifications Section -->
+    <div id="notificationSection" style="display:none;">
+      <div id="notifList"></div>
+    </div>
+
     <div class="orders-summary" id="ordersSummary"></div>
 
     <div class="order-tabs">
@@ -59,6 +64,56 @@
         '<button class="btn-cute" style="margin-top:16px;" onclick="location.href=\'/\'">去首页</button></div>';
     } else {
       loadOrders();
+      loadNotifications();
+    }
+
+    async function loadNotifications() {
+      try {
+        var res = await fetch('/api/notifications?userId=' + userId);
+        var data = await res.json();
+        if (data.success && data.data.notifications.length > 0) {
+          var section = document.getElementById('notificationSection');
+          section.style.display = 'block';
+          var html = '<div class="notif-title" onclick="markAllRead()">📬 审核通知 <span class="notif-badge">' + data.data.unreadCount + '</span></div>';
+          data.data.notifications.forEach(function(n) {
+            var icon = n.type === 'approved' ? '🎉' : '😿';
+            var time = new Date(n.createdAt).toLocaleString('zh-CN');
+            var cls = n.read ? 'notif-item read' : 'notif-item unread';
+            html += '<div class="' + cls + '" onclick="readNotif(\'' + n.id + '\', \'' + n.orderId + '\')">' +
+              '<span class="notif-icon">' + icon + '</span>' +
+              '<span class="notif-text">' + escapeHtml(n.message) + '</span>' +
+              '<span class="notif-time">' + time + '</span>' +
+            '</div>';
+          });
+          document.getElementById('notifList').innerHTML = html;
+          // Show toast for unread
+          if (data.data.unreadCount > 0) {
+            showToast('📬 你有 ' + data.data.unreadCount + ' 条新审核通知~');
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function readNotif(id, orderId) {
+      try {
+        await fetch('/api/notifications/' + id + '/read', { method: 'POST' });
+      } catch (e) {}
+      if (orderId) {
+        location.href = '/material/' + orderId;
+      } else {
+        loadNotifications();
+      }
+    }
+
+    async function markAllRead() {
+      try {
+        await fetch('/api/notifications/read-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: userId })
+        });
+        loadNotifications();
+      } catch (e) {}
     }
 
     async function loadOrders() {

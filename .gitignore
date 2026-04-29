@@ -1,6 +1,7 @@
 node_modules/
-data/db.json
+.env
+.vercel/
+
+# 用户上传文件，不要跟踪
 public/uploads/*
 !public/uploads/.gitkeep
-.DS_Store
-*.log

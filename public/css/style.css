@@ -828,6 +828,34 @@ html, body {
 /* Announcement */
 .admin-item .btn-delete { margin-left: auto; }
 
+/* ============ Notifications ============ */
+#notificationSection {
+  margin: 0 0 16px;
+}
+.notif-title {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  padding: 10px 0 6px; cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+}
+.notif-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; border-radius: 10px;
+  background: var(--danger); color: #fff; font-size: 11px; font-weight: 700;
+  padding: 0 6px;
+}
+.notif-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px; border-radius: var(--radius-sm);
+  margin-bottom: 8px; cursor: pointer;
+  transition: background 0.2s;
+}
+.notif-item:hover { background: var(--primary-light); }
+.notif-item.unread { background: var(--primary-light); border-left: 3px solid var(--primary); }
+.notif-item.read { background: var(--bg); opacity: 0.7; }
+.notif-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+.notif-text { font-size: 14px; color: var(--text); flex: 1; line-height: 1.5; }
+.notif-time { font-size: 11px; color: var(--text-light); white-space: nowrap; margin-top: 2px; }
+
 /* ============ Responsive ============ */
 @media (min-width: 768px) {
   .material-list, .orders-page { max-width: 480px; margin: 0 auto; }
