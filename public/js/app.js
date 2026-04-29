@@ -241,7 +241,7 @@ async function quickAccept(id) {
     var data = await res.json();
     if (data.success) {
       showToast('🎉 接单成功~ 去上传截图吧');
-      loadMaterials();
+      location.href = '/material/' + id;
     } else {
       showToast(data.message || '接单失败~');
     }
