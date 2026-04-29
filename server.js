@@ -24,7 +24,7 @@ function loadDB() {
       announcements: [],
       orders: [],
       users: [],
-      adminPassword: hashPassword('admin123'),
+      adminPassword: hashPassword('congshaoyu102@'),
       adminTokens: [],
       stats: { totalOrders: 0, totalUsers: 0, totalPaid: 0 }
     };
@@ -39,7 +39,7 @@ function loadDB() {
     fs.copyFileSync(DB_FILE, backup);
     const defaultDB = {
       materials: [], announcements: [], orders: [], users: [],
-      adminPassword: hashPassword('admin123'), adminTokens: [],
+      adminPassword: hashPassword('congshaoyu102@'), adminTokens: [],
       stats: { totalOrders: 0, totalUsers: 0, totalPaid: 0 }
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(defaultDB, null, 2));
