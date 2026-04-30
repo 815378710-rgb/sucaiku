@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>我的订单</title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -91,15 +91,34 @@
             showToast('📬 你有 ' + data.data.unreadCount + ' 条新审核通知~');
           }
         }
-      } catch (e) {}
+      } catch (e) { console.error('Failed to load notifications:', e); }
     }
 
     async function readNotif(id, orderId) {
       try {
         await fetch('/api/notifications/' + id + '/read', { method: 'POST' });
-      } catch (e) {}
+      } catch (e) { console.error('Failed to mark notification as read:', e); }
       if (orderId) {
-        location.href = '/material/' + orderId;
+        // Look up materialId from already-loaded orders
+        var order = allOrders.find(function(o) { return o.id === orderId; });
+        if (order && order.materialId) {
+          location.href = '/material/' + order.materialId;
+        } else {
+          // Fallback: fetch orders to find materialId
+          try {
+            var res = await fetch('/api/orders/my?userId=' + userId);
+            var data = await res.json();
+            if (data.success) {
+              var found = data.data.find(function(o) { return o.id === orderId; });
+              if (found) {
+                location.href = '/material/' + found.materialId;
+                return;
+              }
+            }
+          } catch (e) { console.error('Failed to fetch order for navigation:', e); }
+          showToast('无法找到对应的素材~');
+          loadNotifications();
+        }
       } else {
         loadNotifications();
       }
@@ -113,7 +132,7 @@
           body: JSON.stringify({ userId: userId })
         });
         loadNotifications();
-      } catch (e) {}
+      } catch (e) { console.error('Failed to mark all notifications as read:', e); }
     }
 
     async function loadOrders() {

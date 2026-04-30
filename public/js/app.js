@@ -163,7 +163,7 @@ async function searchMaterials(keyword) {
       allMaterials = data.data;
       renderMaterials();
     }
-  } catch (e) {}
+  } catch (e) { console.error('Search materials failed:', e); }
 }
 
 function clearSearch() {
@@ -276,7 +276,7 @@ async function loadStats() {
       document.getElementById('statDy').textContent = data.data.douyin;
       document.getElementById('statReward').textContent = '¥' + data.data.totalReward;
     }
-  } catch (e) {}
+  } catch (e) { console.error('Load stats failed:', e); }
 }
 
 // --- Announcements ---
@@ -290,7 +290,7 @@ async function loadAnnouncements() {
       document.getElementById('announcementText').textContent = text;
       bar.style.display = 'flex';
     }
-  } catch (e) {}
+  } catch (e) { console.error('Load announcements failed:', e); }
 }
 
 // --- Toast ---

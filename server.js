@@ -19,6 +19,33 @@ const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
 });
 
 let _dbCache = null;
+let _dbWriteLock = false;
+const _dbWriteQueue = [];
+
+function _flushWriteQueue() {
+  if (_dbWriteLock || _dbWriteQueue.length === 0) return;
+  _dbWriteLock = true;
+  const { db, callback } = _dbWriteQueue.shift();
+  _dbCache = db;
+  const tempFile = DB_FILE + '.tmp';
+  try {
+    fs.writeFileSync(tempFile, JSON.stringify(db, null, 2));
+    fs.renameSync(tempFile, DB_FILE);
+    if (callback) callback(null);
+  } catch (e) {
+    console.error('saveDB error:', e.message);
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+      if (callback) callback(null);
+    } catch (e2) {
+      console.error('saveDB fallback error:', e2.message);
+      if (callback) callback(e2);
+    }
+  } finally {
+    _dbWriteLock = false;
+    _flushWriteQueue();
+  }
+}
 
 function loadDB() {
   if (_dbCache) return _dbCache;
@@ -61,10 +88,10 @@ function reloadDB() {
 }
 
 function saveDB(db) {
-  _dbCache = db;
-  const tempFile = DB_FILE + '.tmp';
-  fs.writeFileSync(tempFile, JSON.stringify(db, null, 2));
-  fs.renameSync(tempFile, DB_FILE);
+  // Use write queue: always flushes synchronously on first call,
+  // but if a save is already in progress (re-entrant), queues the write.
+  _dbWriteQueue.push({ db, callback: null });
+  _flushWriteQueue();
 }
 
 // Use PBKDF2 for secure password hashing (no external deps)
@@ -77,8 +104,11 @@ function hashPassword(pw) {
 function safeCompare(plainPw, hashedPw) {
   if (typeof plainPw !== 'string' || typeof hashedPw !== 'string') return false;
   const hash = crypto.pbkdf2Sync(plainPw, PASSWORD_SALT, 100000, 32, 'sha256').toString('hex');
-  if (hash.length !== hashedPw.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(hashedPw));
+  // Always compare same-length buffers to prevent timing attacks
+  const buf1 = Buffer.from(hash, 'hex');
+  const buf2 = Buffer.from(hashedPw, 'hex');
+  if (buf1.length !== buf2.length) return false;
+  return crypto.timingSafeEqual(buf1, buf2);
 }
 
 function escapeHtml(str) {
@@ -110,10 +140,22 @@ app.use('/zhongcao', (req, res) => {
   const proxyReq = http.request(opts, (proxyRes) => {
     res.writeHead(proxyRes.statusCode, proxyRes.headers);
     proxyRes.pipe(res);
+    proxyRes.on('error', (e) => {
+      console.error('/zhongcao proxyRes error:', e.message);
+      if (!res.writableEnded) res.end();
+    });
+  });
+  proxyReq.setTimeout(10000, () => {
+    proxyReq.destroy();
+    if (!res.headersSent) res.status(504).json({ success: false, message: 'copy-board 服务响应超时' });
   });
   proxyReq.on('error', (e) => {
     console.error('/zhongcao proxy error:', e.message);
-    res.status(502).json({ success: false, message: 'copy-board 服务不可用' });
+    if (!res.headersSent) res.status(502).json({ success: false, message: 'copy-board 服务不可用' });
+  });
+  // Abort the proxy request if the client disconnects
+  req.on('close', () => {
+    proxyReq.destroy();
   });
   req.pipe(proxyReq);
 });
@@ -125,8 +167,10 @@ app.use(express.urlencoded({ extended: true }));
 
 // Request logging for debugging
 app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ${req.method} ${req.url}`);
+  // Only log non-static, non-health requests
+  if (!req.url.startsWith('/api/health') && !req.url.match(/\.(css|js|png|jpg|gif|webp|svg|ico|json)$/)) {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  }
   next();
 });
 
@@ -178,8 +222,10 @@ function handleMulterError(err, req, res, next) {
 // Requires userId in query or body to prevent abuse
 // ============================================
 app.post('/api/upload', upload.single('file'), (req, res) => {
-  // Basic abuse prevention: require some form of identification
   const userId = req.body?.userId || req.query?.userId;
+  if (!userId) {
+    return res.status(401).json({ success: false, message: '缺少用户身份，无法上传' });
+  }
   if (!req.file) {
     return res.status(400).json({ success: false, message: '没有文件被上传' });
   }
@@ -892,6 +938,29 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   console.error('服务器错误:', err);
   res.status(500).json({ success: false, message: '服务器内部错误' });
+});
+
+// Periodic cleanup of expired admin tokens (every hour)
+setInterval(() => {
+  try {
+    const db = loadDB();
+    const before = db.adminTokens.length;
+    db.adminTokens = db.adminTokens.filter(t => new Date(t.expiresAt) > new Date());
+    if (db.adminTokens.length < before) {
+      saveDB(db);
+      console.log(`Cleaned ${before - db.adminTokens.length} expired admin tokens`);
+    }
+  } catch (e) {
+    console.error('Admin token cleanup failed:', e.message);
+  }
+}, 3600000);
+
+// Global error handlers to prevent silent crashes
+process.on('uncaughtException', (err) => {
+  console.error('uncaughtException:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('unhandledRejection:', reason);
 });
 
 app.listen(PORT, () => {

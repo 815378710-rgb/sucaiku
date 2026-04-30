@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (r.ok) showPanel();
         else { adminToken = ''; localStorage.removeItem('adminToken'); }
       })
-      .catch(function() {});
+      .catch(function(e) { console.error('Admin token check failed:', e); });
   }
 });
 
@@ -117,7 +117,7 @@ function switchTab(tab, el) {
 // --- Stats ---
 async function loadStats() {
   try {
-    var res = await fetch('/api/stats');
+    var res = await adminFetch('/api/stats');
     var data = await res.json();
     if (data.success) {
       var s = data.data;
@@ -128,7 +128,7 @@ async function loadStats() {
         statCard(s.pendingReview, '待审核', '#f44336') +
         statCard('¥' + s.totalPaid, '已打款', '#4caf50');
     }
-  } catch (e) {}
+  } catch (e) { console.error('Load stats failed:', e); }
 }
 
 function statCard(num, label, color) {
@@ -211,7 +211,7 @@ async function loadMaterials() {
     var res = await adminFetch('/api/admin/materials');
     var data = await res.json();
     if (data.success) renderMaterials(data.data);
-  } catch (e) {}
+  } catch (e) { console.error('Load materials failed:', e); }
 }
 
 function renderMaterials(materials) {
@@ -274,7 +274,7 @@ async function deleteMaterial(id) {
 }
 
 function editMaterial(id) {
-  fetch('/api/materials/' + id)
+  adminFetch('/api/materials/' + id)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.success) {
@@ -315,7 +315,7 @@ async function loadOrders() {
       allAdminOrders = data.data;
       renderOrders();
     }
-  } catch (e) {}
+  } catch (e) { console.error('Load orders failed:', e); }
 }
 
 function filterOrds(filter, el) {
@@ -451,7 +451,7 @@ async function loadUsers() {
     var res = await adminFetch('/api/admin/users');
     var data = await res.json();
     if (data.success) renderUsers(data.data);
-  } catch (e) {}
+  } catch (e) { console.error('Load users failed:', e); }
 }
 
 function renderUsers(users) {
@@ -485,7 +485,7 @@ async function loadAnnouncements() {
     var res = await adminFetch('/api/admin/announcements');
     var data = await res.json();
     if (data.success) renderAnnouncements(data.data);
-  } catch (e) {}
+  } catch (e) { console.error('Load announcements failed:', e); }
 }
 
 function renderAnnouncements(anns) {

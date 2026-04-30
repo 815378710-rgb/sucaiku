@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="format-detection" content="telephone=no">
   <title>素材详情</title>
   <link rel="stylesheet" href="/css/style.css">
@@ -161,7 +161,11 @@
       document.getElementById('slotsBarFill').style.width = Math.min(pct, 100) + '%';
 
       var btn = document.getElementById('btnAccept');
-      if (slotsLeft <= 0) {
+      if (!userId) {
+        btn.textContent = '🔐 请先设置昵称';
+        btn.classList.add('disabled');
+        btn.onclick = function() { showToast('先去首页设置昵称吧~'); };
+      } else if (slotsLeft <= 0) {
         btn.textContent = '😿 接单已满';
         btn.classList.add('disabled');
       }
@@ -185,7 +189,7 @@
             }
           }
         }
-      } catch (e) {}
+      } catch (e) { console.error('Failed to check order status:', e); }
     }
 
     function showOrderStatus(order) {
