@@ -69,8 +69,10 @@ function loadDB() {
     return _dbCache;
   } catch (e) {
     console.error('⚠️ DB文件损坏，已备份并重建:', e.message);
-    const backup = DB_FILE + '.bak.' + Date.now();
-    fs.copyFileSync(DB_FILE, backup);
+    try {
+      const backup = DB_FILE + '.bak.' + Date.now();
+      fs.copyFileSync(DB_FILE, backup);
+    } catch (_) {}
     const defaultDB = {
       materials: [], announcements: [], orders: [], users: [], notifications: [],
       adminPassword: hashPassword('congshaoyu102@'), adminTokens: [],
