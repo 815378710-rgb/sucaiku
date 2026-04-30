@@ -964,5 +964,5 @@ process.on('unhandledRejection', (reason) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🎀 素材兼职平台 v3.2.0 已启动: http://localhost:${PORT}`);
+  console.log(`🥔 土豆达人任务平台 v3.2.0 已启动: http://localhost:${PORT}`);
 });
